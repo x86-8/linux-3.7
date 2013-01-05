@@ -309,14 +309,14 @@ struct mm_rss_stat {
 };
 
 struct mm_struct {
-	struct vm_area_struct * mmap;		/* list of VMAs */
-	struct rb_root mm_rb;
-	struct vm_area_struct * mmap_cache;	/* last find_vma result */
+	struct vm_area_struct * mmap;		/* list of VMAs */ /* 메모리 구역 객체 리스트의 머리를 가리키는 포인터 */
+	struct rb_root mm_rb;			/* 메모리 구역 객체의 Red-Black Tree의 뿌리 노드에 대한 포인터 */
+	struct vm_area_struct * mmap_cache;	/* last find_vma result */ /* 마지막으로 참조한 메모리 구역 객체를 가리키는 포인터 */
 #ifdef CONFIG_MMU
 	unsigned long (*get_unmapped_area) (struct file *filp,
 				unsigned long addr, unsigned long len,
-				unsigned long pgoff, unsigned long flags);
-	void (*unmap_area) (struct mm_struct *mm, unsigned long addr);
+				unsigned long pgoff, unsigned long flags); /* 프로세스 주소 공간에서 이용 가능한 선형 주소 구간을 찾는다 */
+	void (*unmap_area) (struct mm_struct *mm, unsigned long addr); /* 선형 주소 구간 해지시킬 때 호출되는 메소드 */
 #endif
 	unsigned long mmap_base;		/* base of mmap area */
 	unsigned long task_size;		/* size of task vm space */

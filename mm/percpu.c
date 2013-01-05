@@ -1603,8 +1603,8 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_info(
  * RETURNS:
  * 0 on success, -errno on failure.
  */
-int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size,
-				  size_t atom_size,
+int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB, 20KB
+				  size_t atom_size, // 2MB
 				  pcpu_fc_cpu_distance_fn_t cpu_distance_fn,
 				  pcpu_fc_alloc_fn_t alloc_fn,
 				  pcpu_fc_free_fn_t free_fn)

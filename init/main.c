@@ -337,6 +337,8 @@ static inline void smp_prepare_cpus(unsigned int maxcpus) { }
  * We also need to store the touched command line since the parameter
  * parsing is performed in place, and we should allow a component to
  * store reference of name/value for future reference.
+ * 나중을 위해 부팅 커맨드를 두곳에 저장하고 하나는 변형시켜서(static_command_line) 사용한다.
+ * 나머지 하나는 건들지 않는다(saved_command_line)
  */
 static void __init setup_command_line(char *command_line)
 {
@@ -496,11 +498,35 @@ asmlinkage void __init start_kernel(void)
 	boot_cpu_init();
 	page_address_init();
 	printk(KERN_NOTICE "%s", linux_banner);
+
+        /**
+         * 아키텍처 종속적인 초기화
+         */
 	setup_arch(&command_line);
+
+        /**
+         * init_task의 owner에 init_mm을 설정해서 서로를 가르키게 한다. 왜?
+         */
 	mm_init_owner(&init_mm, &init_task);
+
+        /**
+         * HELPME: CPU_OFFSTACK_MASK=y하면 크래시가 발생해서 초기화 순서를 수정한다??
+         */
 	mm_init_cpumask(&init_mm);
+
+        /**
+         * 커맨드 라인을 두곳에 저장하고 하나는 절대 변형시키지 않는다.
+         */
 	setup_command_line(command_line);
+
+        /**
+         * nr_cpu_ids를 설정한다. 어떤 아키텍처는 이미 셋팅 되어 있을 수 도 있겠다. x86-64 numa는
+         */
 	setup_nr_cpu_ids();
+
+        /**
+         * 
+         */
 	setup_per_cpu_areas();
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
 

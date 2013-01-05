@@ -9,5 +9,7 @@ Linux kernel Study Group(iamroot x86-8 beginner)
 
 Study history (날짜:인원:내용)
 ==============================
-87. 2012/12/22:00:*init/main.c* -
+87. 2012/12/22:??:*init/main.c* -
+88. 2013/01/05:03:*init/main.c* - setup_per_cpu_areas
+
 

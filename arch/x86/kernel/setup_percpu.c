@@ -186,7 +186,7 @@ void __init setup_per_cpu_areas(void)
 	rc = -EINVAL;
 	if (pcpu_chosen_fc != PCPU_FC_PAGE) {
 		const size_t dyn_size = PERCPU_MODULE_RESERVE +
-			PERCPU_DYNAMIC_RESERVE - PERCPU_FIRST_CHUNK_RESERVE;
+			PERCPU_DYNAMIC_RESERVE - PERCPU_FIRST_CHUNK_RESERVE; // 8KB + 20KB - 8KB
 		size_t atom_size;
 
 		/*
@@ -197,7 +197,7 @@ void __init setup_per_cpu_areas(void)
 		 * and large vmalloc area allocs can easily fail.
 		 */
 #ifdef CONFIG_X86_64
-		atom_size = PMD_SIZE;
+		atom_size = PMD_SIZE; // 2MB
 #else
 		atom_size = PAGE_SIZE;
 #endif
