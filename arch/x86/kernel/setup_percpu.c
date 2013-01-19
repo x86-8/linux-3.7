@@ -201,15 +201,17 @@ void __init setup_per_cpu_areas(void)
 #else
 		atom_size = PAGE_SIZE;
 #endif
-		rc = pcpu_embed_first_chunk(PERCPU_FIRST_CHUNK_RESERVE,
-					    dyn_size, atom_size,
-					    pcpu_cpu_distance,
-					    pcpu_fc_alloc, pcpu_fc_free);
+                /* embed 방식으로 첫번재 청크를 할당한다. */
+		rc = pcpu_embed_first_chunk(PERCPU_FIRST_CHUNK_RESERVE, // 8 << 10
+					    dyn_size, atom_size,       // 20KB, 2MB
+					    pcpu_cpu_distance,         // func
+					    pcpu_fc_alloc, pcpu_fc_free);  // func, func
 		if (rc < 0)
 			pr_warning("%s allocator failed (%d), falling back to page size\n",
 				   pcpu_fc_names[pcpu_chosen_fc], rc);
 	}
 	if (rc < 0)
+                /* `embed`방식으로 첫번재 청크를 할당이 실패하면 `page`방식으로 할당 한다. */
 		rc = pcpu_page_first_chunk(PERCPU_FIRST_CHUNK_RESERVE,
 					   pcpu_fc_alloc, pcpu_fc_free,
 					   pcpup_populate_pte);

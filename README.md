@@ -11,5 +11,8 @@ Study history (날짜:인원:내용)
 ==============================
 87. 2012/12/22:??:*init/main.c* -
 88. 2013/01/05:03:*init/main.c* - setup_per_cpu_areas
+89. 2013/01/19:03:*init/main.c* - pcpu_build_alloc_info
+
+
 
 

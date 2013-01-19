@@ -19,6 +19,7 @@
 #ifndef find_next_bit
 /*
  * Find the next set bit in a memory region.
+ * 뻔하니간 안보고 패스 - by 경건
  */
 unsigned long find_next_bit(const unsigned long *addr, unsigned long size,
 			    unsigned long offset)

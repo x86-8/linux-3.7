@@ -1435,7 +1435,7 @@ early_param("percpu_alloc", percpu_alloc_setup);
  * On success, pointer to the new allocation_info is returned.  On
  * failure, ERR_PTR value is returned.
  */
-static struct pcpu_alloc_info * __init pcpu_build_alloc_info(
+static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 				size_t reserved_size, size_t dyn_size,
 				size_t atom_size,
 				pcpu_fc_cpu_distance_fn_t cpu_distance_fn)
@@ -1455,9 +1455,11 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_info(
 	memset(group_map, 0, sizeof(group_map));
 	memset(group_cnt, 0, sizeof(group_cnt));
 
-	/* calculate size_sum and ensure dyn_size is enough for early alloc */
+	/* calculate size_sum and ensure dyn_size is enough for early alloc
+         * static_size + reserved_size(8K) + dyn_size(20K) 기준으로 PFN정렬후 dyn_size재설정
+         */
 	size_sum = PFN_ALIGN(static_size + reserved_size +
-			    max_t(size_t, dyn_size, PERCPU_DYNAMIC_EARLY_SIZE));
+                             max_t(size_t, dyn_size, PERCPU_DYNAMIC_EARLY_SIZE));
 	dyn_size = size_sum - static_size - reserved_size;
 
 	/*
@@ -1466,12 +1468,12 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_info(
 	 * which can accommodate 4k aligned segments which are equal to
 	 * or larger than min_unit_size.
 	 */
-	min_unit_size = max_t(size_t, size_sum, PCPU_MIN_UNIT_SIZE);
+	min_unit_size = max_t(size_t, size_sum, PCPU_MIN_UNIT_SIZE); // min_unit_size = size_sum
 
-	alloc_size = roundup(min_unit_size, atom_size);
-	upa = alloc_size / min_unit_size;
+	alloc_size = roundup(min_unit_size, atom_size); // static_size값이 크게 할당된다면 2MB보다 커질 수 있다.
+	upa = alloc_size / min_unit_size;  // Unit Per Allocation
 	while (alloc_size % upa || ((alloc_size / upa) & ~PAGE_MASK))
-		upa--;
+		upa--; // HELPME: 여기 x86_64 일때 들어 올수 있는거야?
 	max_upa = upa;
 
 	/* group cpus according to their proximity */
