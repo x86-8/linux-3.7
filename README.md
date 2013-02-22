@@ -10,9 +10,10 @@ Linux kernel Study Group(iamroot x86-8 beginner)
 Study history (날짜:인원:내용)
 ==============================
 87. 2012/12/22:??:*init/main.c* -
-88. 2013/01/05:03:*init/main.c* - setup_per_cpu_areas
-89. 2013/01/19:03:*init/main.c* - pcpu_build_alloc_info
-
-
-
+88. 2013/01/05:03:*init/main.c* - setup_per_cpu_areas | 누리꿈에서 스터디
+xx. 2013/01/12:02: 토즈 신촌점 예약 취소로 스터디 못함
+89. 2013/01/19:02:*init/main.c* - pcpu_build_alloc_info | 복잡한 percpu 추측 난무와 프토젝트 불가로 인한 환경과의 싸움
+90. 2013/01/26:02:*init/main.c* - pcpu_build_alloc_info | @minq님의 linux 환경으로 분석
+91. 2013/02/02:03:*init/main.c* - pcpu_build_alloc_info | @Florentius님 복귀
+92. 2013/02/16:04:*init/main.c* - pcpu_build_alloc_info | @jminrang님 복귀
 
