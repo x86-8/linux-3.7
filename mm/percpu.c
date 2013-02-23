@@ -1442,6 +1442,7 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 {
 	static int group_map[NR_CPUS] __initdata;
 	static int group_cnt[NR_CPUS] __initdata;
+	/* per cpuu SECTION의 크기로 static_size가 결정 */
 	const size_t static_size = __per_cpu_end - __per_cpu_start;
 	int nr_groups = 1, nr_units = 0;
 	size_t size_sum, min_unit_size, alloc_size;
@@ -1456,8 +1457,8 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 	memset(group_cnt, 0, sizeof(group_cnt));
 
 	/* calculate size_sum and ensure dyn_size is enough for early alloc
-         * static_size + reserved_size(8K) + dyn_size(20K) 기준으로 PFN정렬후 dyn_size재설정
-         */
+	 * static_size + reserved_size(8K) + dyn_size(20K) 기준으로 PFN정렬후 dyn_size재설정
+	 */
 	size_sum = PFN_ALIGN(static_size + reserved_size +
                              max_t(size_t, dyn_size, PERCPU_DYNAMIC_EARLY_SIZE));
 	dyn_size = size_sum - static_size - reserved_size;
@@ -1468,15 +1469,27 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 	 * which can accommodate 4k aligned segments which are equal to
 	 * or larger than min_unit_size.
 	 */
+	/* PCPU_MIN_UNIT_SIZE는 32kb이므로, 최소 크기는 32kb가 됨 */
 	min_unit_size = max_t(size_t, size_sum, PCPU_MIN_UNIT_SIZE); // min_unit_size = size_sum
 
-	alloc_size = roundup(min_unit_size, atom_size); // static_size값이 크게 할당된다면 2MB보다 커질 수 있다.
-	upa = alloc_size / min_unit_size;  // Unit Per Allocation
+	/* atom_size(2MB)로 할당할 것이기 때문에, 최소 unit_size로 align 
+	 * 하여 할당해야 할 크기 계산  */
+	alloc_size = roundup(min_unit_size, atom_size);
+	upa = alloc_size / min_unit_size;
+	/* HELPME: 여기 x86_64 일때 들어 올수 있는거야? */
+	/* ANSWER: size_sum 값이 예로 들어 min_unit_size = 36kb의 값이라면, upa--가 실행. 
+	 * unit이 최대 몇 개 일때 alloc_size 를 채울 수 있는지 계산
+	 * 채울 수 있다는 것은 나누어 떨어지며, PAGE단위로 align되어 있음을
+	 * 의미하는데, 예로 min_unit_size = 36의 upa는 alloc_size를 채울 수 없어서,
+	 * upa를 채울 수 있는 데 까지 낮추게 된다.
+	 * 이 조건으로 최소값은 1로 한정된다 */
 	while (alloc_size % upa || ((alloc_size / upa) & ~PAGE_MASK))
-		upa--; // HELPME: 여기 x86_64 일때 들어 올수 있는거야?
+		upa--; 
 	max_upa = upa;
 
 	/* group cpus according to their proximity */
+	/* cpu 근접도를 가지고, cpu가 속한 그룹 map, 해당 그룹의 cpu 갯수 테이블을
+	 * 만들어 낸다 */
 	for_each_possible_cpu(cpu) {
 		group = 0;
 	next_group:
@@ -1491,6 +1504,7 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 				goto next_group;
 			}
 		}
+		/* group의 값은 for 문이 종료 되었을 때, cpu의 group을 의미*/
 		group_map[cpu] = group;
 		group_cnt[group]++;
 	}
@@ -1500,16 +1514,23 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 	 * and then as much as possible without using more address
 	 * space.
 	 */
+	/* 최대 upa 값부터, alloc_size에 node의 cpu를 얼마나 할당할 수 있는지,
+	 * 최적의 upa 값을 계산 */
 	last_allocs = INT_MAX;
 	for (upa = max_upa; upa; upa--) {
 		int allocs = 0, wasted = 0;
 
+		/* upa값 역시, 작아지기 때문에, alloc_size를 채울 수 있는지 검증 */
 		if (alloc_size % upa || ((alloc_size / upa) & ~PAGE_MASK))
 			continue;
 
 		for (group = 0; group < nr_groups; group++) {
+			/* 해당 group의 cpu갯수를 upa 단위로 정렬 */
 			int this_allocs = DIV_ROUND_UP(group_cnt[group], upa);
+			/* alloc을 총 몇 개나 할당하게 되는지  */
 			allocs += this_allocs;
+			/* 현재 group의 alloc이 가지는 unit 갯수에서, 해당 group의 
+			 * cpu 갯수를 빼게 되면, 쓰지 않는(소모되는) unit 갯수를 알수 있다 */
 			wasted += this_allocs * upa - group_cnt[group];
 		}
 
@@ -1518,10 +1539,14 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 		 * greater-than comparison ensures upa==1 always
 		 * passes the following check.
 		 */
+		/* 쓰지 않는 unit 갯수가 (1/3*cpu갯수) 이하 일때만, 사용.
+		 * (필요한 unit size가 alloc size와 cpu 갯수를 항상 만족 할수 없기
+		 * 때문인 것으로 생각 됨) */
 		if (wasted > num_possible_cpus() / 3)
 			continue;
 
 		/* and then don't consume more memory */
+		/* 최소 할당량을 가질 때만, 사용 */
 		if (allocs > last_allocs)
 			break;
 		last_allocs = allocs;
@@ -1530,6 +1555,7 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 	upa = best_upa;
 
 	/* allocate and fill alloc_info */
+	/* best_upa를 통해서 group별 필요한 총 unit갯수를 계산  */
 	for (group = 0; group < nr_groups; group++)
 		nr_units += roundup(group_cnt[group], upa);
 
@@ -1617,6 +1643,7 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 	size_t size_sum, areas_size, max_distance;
 	int group, i, rc;
 
+	/* 할당 될 alloc info 를 만들어 낸다*/
 	ai = pcpu_build_alloc_info(reserved_size, dyn_size, atom_size,
 				   cpu_distance_fn);
 	if (IS_ERR(ai))

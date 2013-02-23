@@ -164,6 +164,7 @@ static inline void setup_percpu_segment(int cpu)
 #endif
 }
 
+/* x86은 이 함수를 타게 된다 */
 void __init setup_per_cpu_areas(void)
 {
 	unsigned int cpu;
@@ -180,10 +181,14 @@ void __init setup_per_cpu_areas(void)
 	 * on 32bit.  Use page in that case.
 	 */
 #ifdef CONFIG_X86_32
+	/* 32bit 한정 first chunk 가 auto인데 numa라면, page로 한다. 32bit에서
+	 * embed(2mb단위) 방식은 메모리 할당면에서 ᅠᆼ 안좋기 때문 */
 	if (pcpu_chosen_fc == PCPU_FC_AUTO && pcpu_need_numa())
 		pcpu_chosen_fc = PCPU_FC_PAGE;
 #endif
 	rc = -EINVAL;
+	/* first chunk 방식이 PAGE가 아니면 auto 또는 embed인데, auto 는
+	 * embed, page 순으로 시도하게 된다(결국 PCPU_FC_EMBED == PCPU_FC_AUTO) */
 	if (pcpu_chosen_fc != PCPU_FC_PAGE) {
 		const size_t dyn_size = PERCPU_MODULE_RESERVE +
 			PERCPU_DYNAMIC_RESERVE - PERCPU_FIRST_CHUNK_RESERVE; // 8KB + 20KB - 8KB
@@ -197,11 +202,15 @@ void __init setup_per_cpu_areas(void)
 		 * and large vmalloc area allocs can easily fail.
 		 */
 #ifdef CONFIG_X86_64
+		/* 64bit 일때, PS bit를 사용 PAGE 단위를 2MB로 할당하여,
+		 * vmalloc의 PMD size align 된 연속적인 공간을 얻기 위해서
+		 * 인 것으로 보인다. 32bit에서는 2MB 단위로 요청하면, 자꾸 
+		 * 실패해서 체념한 듯.. :) */
 		atom_size = PMD_SIZE; // 2MB
 #else
 		atom_size = PAGE_SIZE;
 #endif
-                /* embed 방식으로 첫번재 청크를 할당한다. */
+		/* embed 방식으로 첫번재 청크를 할당한다. */
 		rc = pcpu_embed_first_chunk(PERCPU_FIRST_CHUNK_RESERVE, // 8 << 10
 					    dyn_size, atom_size,       // 20KB, 2MB
 					    pcpu_cpu_distance,         // func
@@ -211,7 +220,7 @@ void __init setup_per_cpu_areas(void)
 				   pcpu_fc_names[pcpu_chosen_fc], rc);
 	}
 	if (rc < 0)
-                /* `embed`방식으로 첫번재 청크를 할당이 실패하면 `page`방식으로 할당 한다. */
+		/* `embed`방식으로 첫번재 청크를 할당이 실패하면 `page`방식으로 할당 한다. */
 		rc = pcpu_page_first_chunk(PERCPU_FIRST_CHUNK_RESERVE,
 					   pcpu_fc_alloc, pcpu_fc_free,
 					   pcpup_populate_pte);
