@@ -16,4 +16,4 @@ Study history (날짜:인원:내용)
 90. 2013/01/26:02:*init/main.c* - pcpu_build_alloc_info | @minq님의 linux 환경으로 분석
 91. 2013/02/02:03:*init/main.c* - pcpu_build_alloc_info | @Florentius님 복귀
 92. 2013/02/16:04:*init/main.c* - pcpu_build_alloc_info | @jminrang님 복귀
-
+93. 2013/02/23:03:*init/main.c* - pcpu_embed_first_chunk

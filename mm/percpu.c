@@ -1435,7 +1435,7 @@ early_param("percpu_alloc", percpu_alloc_setup);
  * On success, pointer to the new allocation_info is returned.  On
  * failure, ERR_PTR value is returned.
  */
-static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
+static struct pcpu_alloc_info * __init pcpu_build_alloc_info(
 				size_t reserved_size, size_t dyn_size,
 				size_t atom_size,
 				pcpu_fc_cpu_distance_fn_t cpu_distance_fn)
@@ -1530,7 +1530,7 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 			/* alloc을 총 몇 개나 할당하게 되는지  */
 			allocs += this_allocs;
 			/* 현재 group의 alloc이 가지는 unit 갯수에서, 해당 group의 
-			 * cpu 갯수를 빼게 되면, 쓰지 않는(소모되는) unit 갯수를 알수 있다 */
+			 * cpu 갯수를 빼게 되면, 쓰지 않는(낭비 하는) unit 갯수를 알수 있다 */
 			wasted += this_allocs * upa - group_cnt[group];
 		}
 
@@ -1539,14 +1539,14 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 		 * greater-than comparison ensures upa==1 always
 		 * passes the following check.
 		 */
-		/* 쓰지 않는 unit 갯수가 (1/3*cpu갯수) 이하 일때만, 사용.
+		/* 쓰지 않는 unit 갯수가 (1/3*cpu갯수) 이하 일때만, 조건 만족.
 		 * (필요한 unit size가 alloc size와 cpu 갯수를 항상 만족 할수 없기
 		 * 때문인 것으로 생각 됨) */
 		if (wasted > num_possible_cpus() / 3)
 			continue;
 
 		/* and then don't consume more memory */
-		/* 최소 할당량을 가질 때만, 사용 */
+		/* 최소 할당량을 가질 때만, upa의 값을 best_upa로 사용. */
 		if (allocs > last_allocs)
 			break;
 		last_allocs = allocs;
@@ -1559,6 +1559,7 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 	for (group = 0; group < nr_groups; group++)
 		nr_units += roundup(group_cnt[group], upa);
 
+        /* nr_groups와 nr_units를 반영한 ai(alloc_info)를 메모리 할당(alloc) */
 	ai = pcpu_alloc_alloc_info(nr_groups, nr_units);
 	if (!ai)
 		return ERR_PTR(-ENOMEM);
@@ -1566,16 +1567,20 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 
 	for (group = 0; group < nr_groups; group++) {
 		ai->groups[group].cpu_map = cpu_map;
+                /* upa 정렬된 크기로 cpu_map offset 증가 */
 		cpu_map += roundup(group_cnt[group], upa);
 	}
 
 	ai->static_size = static_size;
 	ai->reserved_size = reserved_size;
 	ai->dyn_size = dyn_size;
+        /* unit_size를 best_upa로 설정 */
 	ai->unit_size = alloc_size / upa;
 	ai->atom_size = atom_size;
 	ai->alloc_size = alloc_size;
 
+        /* 이전에 얻었던 group_map, group_cnt로 ai->groups 정보
+           갱신 */
 	for (group = 0, unit = 0; group_cnt[group]; group++) {
 		struct pcpu_group_info *gi = &ai->groups[group];
 
@@ -1586,6 +1591,7 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_infow(
 		 */
 		gi->base_offset = unit * ai->unit_size;
 
+                /* group에 맞는 cpu 정보 추가 */
 		for_each_possible_cpu(cpu)
 			if (group_map[cpu] == group)
 				gi->cpu_map[gi->nr_units++] = cpu;
@@ -1652,6 +1658,7 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 	size_sum = ai->static_size + ai->reserved_size + ai->dyn_size;
 	areas_size = PFN_ALIGN(ai->nr_groups * sizeof(void *));
 
+        /* group info를 지정하는 1차원 ptr 배열 할당 */
 	areas = alloc_bootmem_nopanic(areas_size);
 	if (!areas) {
 		rc = -ENOMEM;
@@ -1659,6 +1666,8 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 	}
 
 	/* allocate, copy and determine base address */
+        /* group의 unit 전체를 할당하고 base 주소를 결정(마지막 할당된
+           주소로 갱신) */
 	for (group = 0; group < ai->nr_groups; group++) {
 		struct pcpu_group_info *gi = &ai->groups[group];
 		unsigned int cpu = NR_CPUS;
@@ -1669,6 +1678,9 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 		BUG_ON(cpu == NR_CPUS);
 
 		/* allocate space for the whole group */
+                /* 해당 group의 가장 마지막 cpu의 memory영역에
+                 * atom_size(2MB)로 정렬된 group(유닛들)을 할당.
+                 * (같은group => 같은 node) */
 		ptr = alloc_fn(cpu, gi->nr_units * ai->unit_size, atom_size);
 		if (!ptr) {
 			rc = -ENOMEM;
@@ -1678,6 +1690,8 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 		kmemleak_free(ptr);
 		areas[group] = ptr;
 
+                /* HELPME: unit값들 중 큰값으로 base를 갱신하는데, 이유
+                   모르겠음 */
 		base = min(ptr, base);
 	}
 
@@ -1686,36 +1700,53 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 	 * allocations are complete; otherwise, we may end up with
 	 * overlapping groups.
 	 */
+        /* 할당된 group내의 주소에서 쓰지 않는 unit을 찾아내어, 해당
+           unit만을 할당 해제. */
 	for (group = 0; group < ai->nr_groups; group++) {
 		struct pcpu_group_info *gi = &ai->groups[group];
 		void *ptr = areas[group];
 
 		for (i = 0; i < gi->nr_units; i++, ptr += ai->unit_size) {
+                        /* cpu_map값은 최초 NR_CPUS로 초기화되어 있기 때문에,
+                           갱신이 안되어 있으면, 쓰지 않는 것으로 판단 */
 			if (gi->cpu_map[i] == NR_CPUS) {
 				/* unused unit, free whole */
+                                /* ptr은 unit_size만큼 증가되기 때문에
+                                   해당 unit이 된다 */
 				free_fn(ptr, ai->unit_size);
 				continue;
 			}
 			/* copy and return the unused part */
+                        /* 실제 percpu영역크기인 static_size만큼을
+                           __per_cpu_load에서 복사 */
 			memcpy(ptr, __per_cpu_load, ai->static_size);
+                        /* HELPME: ptr_size_sum이 어디를 가르키는가? */
 			free_fn(ptr + size_sum, ai->unit_size - size_sum);
 		}
 	}
 
 	/* base address is now known, determine group base offsets */
+        /* 할당된 group의 주소값과 마지막 group의 주소값 간의
+           base_offset을 구하고, 그 base_offset 의 최대치(max_distance)를 저장 */
 	max_distance = 0;
 	for (group = 0; group < ai->nr_groups; group++) {
 		ai->groups[group].base_offset = areas[group] - base;
 		max_distance = max_t(size_t, max_distance,
 				     ai->groups[group].base_offset);
 	}
+        /* HELPME: 왜 ai->unit_size 만큼을 추가로 증가하는가? */
 	max_distance += ai->unit_size;
 
 	/* warn if maximum distance is further than 75% of vmalloc space */
+        /* HELPME: max_distance가 vmalloc 공간의 3/4를 넘었을 때의 현상이 무엇이며, 왜 이런
+           기준이 생겨났는지? */
 	if (max_distance > (VMALLOC_END - VMALLOC_START) * 3 / 4) {
 		pr_warning("PERCPU: max_distance=0x%zx too large for vmalloc "
 			   "space 0x%lx\n", max_distance,
 			   (unsigned long)(VMALLOC_END - VMALLOC_START));
+                /* page first chunk 가 선언되어 있으면, 실패로
+                   간주. 아마도 page fc로 다시 처리하려는
+                   목적(page fc가 없으면, 단순 warning) */
 #ifdef CONFIG_NEED_PER_CPU_PAGE_FIRST_CHUNK
 		/* and fail if we have fallback */
 		rc = -EINVAL;
