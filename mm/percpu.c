@@ -198,8 +198,10 @@ static bool pcpu_addr_in_reserved_chunk(void *addr)
 		addr < first_start + pcpu_reserved_chunk_limit;
 }
 
+/* pcpu size를 slot 갯수로 변환 */
 static int __pcpu_size_to_slot(int size)
 {
+  /* fls 함수 => "find last set bit in word" */
 	int highbit = fls(size);	/* size is in bytes */
 	return max(highbit - PCPU_SLOT_BASE_SHIFT + 2, 1);
 }
@@ -1208,6 +1210,7 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 				  void *base_addr)
 {
 	static char cpus_buf[4096] __initdata;
+  /* PERCPU_DYNAMIC_EARLY_SLOTS == 128 */
 	static int smap[PERCPU_DYNAMIC_EARLY_SLOTS] __initdata;
 	static int dmap[PERCPU_DYNAMIC_EARLY_SLOTS] __initdata;
 	size_t dyn_size = ai->dyn_size;
@@ -1220,8 +1223,10 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	int *unit_map;
 	int group, unit, i;
 
+  /* cpu_possible_mask를 출력가능한 문자열로 cpus_buf에 저장. 에러 발생시 출력. */
 	cpumask_scnprintf(cpus_buf, sizeof(cpus_buf), cpu_possible_mask);
-
+  
+  /* 발생해서는 안될 버그 탐지를 위한(==ASSERT) macro */
 #define PCPU_SETUP_BUG_ON(cond)	do {					\
 	if (unlikely(cond)) {						\
 		pr_emerg("PERCPU: failed to initialize, %s", #cond);	\
@@ -1248,7 +1253,9 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	/* process group information and build config tables accordingly */
 	group_offsets = alloc_bootmem(ai->nr_groups * sizeof(group_offsets[0]));
 	group_sizes = alloc_bootmem(ai->nr_groups * sizeof(group_sizes[0]));
+  /* cpu id => unit id 매핑 */
 	unit_map = alloc_bootmem(nr_cpu_ids * sizeof(unit_map[0]));
+  /* cpu id => unit addr 매핑 */
 	unit_off = alloc_bootmem(nr_cpu_ids * sizeof(unit_off[0]));
 
 	for (cpu = 0; cpu < nr_cpu_ids; cpu++)
@@ -1260,6 +1267,7 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	for (group = 0, unit = 0; group < ai->nr_groups; group++, unit += i) {
 		const struct pcpu_group_info *gi = &ai->groups[group];
 
+    /* group 별 매핑 정보 설정 */
 		group_offsets[group] = gi->base_offset;
 		group_sizes[group] = gi->nr_units * ai->unit_size;
 
@@ -1271,11 +1279,13 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 			PCPU_SETUP_BUG_ON(cpu > nr_cpu_ids);
 			PCPU_SETUP_BUG_ON(!cpu_possible(cpu));
 			PCPU_SETUP_BUG_ON(unit_map[cpu] != UINT_MAX);
-
+      
+      /* unit 별 매핑 정보 설정 */
 			unit_map[cpu] = unit + i;
 			unit_off[cpu] = gi->base_offset + i * ai->unit_size;
 
 			/* determine low/high unit_cpu */
+      /* 최소/최대 유닛 정보 설정 */
 			if (pcpu_low_unit_cpu == NR_CPUS ||
 			    unit_off[cpu] < unit_off[pcpu_low_unit_cpu])
 				pcpu_low_unit_cpu = cpu;
@@ -1284,15 +1294,20 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 				pcpu_high_unit_cpu = cpu;
 		}
 	}
+  /* 최종 unit 갯수 반영 */
 	pcpu_nr_units = unit;
 
+  /** 사용가능한(possible) cpu에 대해서 모든 unit이 매핑되었으므로,
+   * bug() 가 발생하면 안됨. */
 	for_each_possible_cpu(cpu)
 		PCPU_SETUP_BUG_ON(unit_map[cpu] == UINT_MAX);
 
 	/* we're done parsing the input, undefine BUG macro and dump config */
+  /* ai로 부터 얻은 매핑 정보의 검증과 반영이 끝났음을 명시적으로 나타냄. */
 #undef PCPU_SETUP_BUG_ON
 	pcpu_dump_alloc_info(KERN_DEBUG, ai);
 
+  /* pcpu 모듈에서 쓰기 위해, 전역 변수에 반영 */
 	pcpu_nr_groups = ai->nr_groups;
 	pcpu_group_offsets = group_offsets;
 	pcpu_group_sizes = group_sizes;
@@ -1300,9 +1315,14 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	pcpu_unit_offsets = unit_off;
 
 	/* determine basic parameters */
+  /* pcpu 전역 변수에 기본적인 값을 반영 */
 	pcpu_unit_pages = ai->unit_size >> PAGE_SHIFT;
 	pcpu_unit_size = pcpu_unit_pages << PAGE_SHIFT;
 	pcpu_atom_size = ai->atom_size;
+  /** pcpu_chunk => sizeof(pcpu_chunk) + sizeof(populated_bitmap)
+   *  populated_bitmap은 로 해당 chunk에 몇 개의 page를 소모했는지 long
+   *  bitmap으로 나타내게 됨.
+   */
 	pcpu_chunk_struct_size = sizeof(struct pcpu_chunk) +
 		BITS_TO_LONGS(pcpu_unit_pages) * sizeof(unsigned long);
 
@@ -1310,6 +1330,9 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	 * Allocate chunk slots.  The additional last slot is for
 	 * empty chunks.
 	 */
+  /* unit_size를 slot 갯수로 변환해서, slot 개체 할당 */
+  /* HELPME: 마지막 slot 2개의 count가 왜 2개가 추가되는지, 어떻게
+   * slot 갯수로 바뀌는지 확인 필요 */
 	pcpu_nr_slots = __pcpu_size_to_slot(pcpu_unit_size) + 2;
 	pcpu_slot = alloc_bootmem(pcpu_nr_slots * sizeof(pcpu_slot[0]));
 	for (i = 0; i < pcpu_nr_slots; i++)
@@ -1330,21 +1353,28 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	schunk->immutable = true;
 	bitmap_fill(schunk->populated, pcpu_unit_pages);
 
+  /* reserved_size에 따라 dchunk를 쓸지, schunk를 쓸지 나뉘고, schunk가
+   * 처리하는 크기도 달라지게 됨 */
 	if (ai->reserved_size) {
+    /* dchunk 사용. schunk는 static_size + reserved_size 담당 */
 		schunk->free_size = ai->reserved_size;
 		pcpu_reserved_chunk = schunk;
 		pcpu_reserved_chunk_limit = ai->static_size + ai->reserved_size;
 	} else {
+    /* schunk만 사용, dchunk 사용 안함 */
 		schunk->free_size = dyn_size;
 		dyn_size = 0;			/* dynamic area covered */
 	}
+  /* free_size는 초기에 연속적인 공간으로 나타내지는 것으로 보임 */
 	schunk->contig_hint = schunk->free_size;
 
+  /* schunk(정확히는 map)에 할당된 static_size와 free_size 반영 */
 	schunk->map[schunk->map_used++] = -ai->static_size;
 	if (schunk->free_size)
 		schunk->map[schunk->map_used++] = schunk->free_size;
 
 	/* init dynamic chunk if necessary */
+  /* dynamic 영역이 있는 경우 dchunk 초기화 */
 	if (dyn_size) {
 		dchunk = alloc_bootmem(pcpu_chunk_struct_size);
 		INIT_LIST_HEAD(&dchunk->list);
@@ -1360,6 +1390,8 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	}
 
 	/* link the first chunk in */
+  /* pcpu fc 를 dchunk가 있으면 dchunk 아니면 schunk 사용하는 구조 */
+  /* HELPME: schunk는 어디로 가는 거지? */
 	pcpu_first_chunk = dchunk ?: schunk;
 	pcpu_chunk_relocate(pcpu_first_chunk, -1);
 
