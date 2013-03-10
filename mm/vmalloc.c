@@ -1163,6 +1163,7 @@ void __init vm_area_add_early(struct vm_struct *vm)
  *
  * DO NOT USE THIS FUNCTION UNLESS YOU KNOW WHAT YOU'RE DOING.
  */
+/* 부팅시에 VMALLOC area에 등록. */
 void __init vm_area_register_early(struct vm_struct *vm, size_t align)
 {
 	static size_t vm_init_off __initdata;

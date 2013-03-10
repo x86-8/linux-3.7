@@ -168,11 +168,14 @@ static inline void bitmap_zero(unsigned long *dst, int nbits)
 
 static inline void bitmap_fill(unsigned long *dst, int nbits)
 {
+  /* nbits가 long을 몇 개 차지하는지 */
 	size_t nlongs = BITS_TO_LONGS(nbits);
+  /* nbits가 작은 상수 값이 아닌 경우, long 단위로 1을 써넣는다 */
 	if (!small_const_nbits(nbits)) {
 		int len = (nlongs - 1) * sizeof(unsigned long);
 		memset(dst, 0xff,  len);
 	}
+  /* 남는 bitmap들은 마지막 부분만 마스킹 해서 저장 */
 	dst[nlongs - 1] = BITMAP_LAST_WORD_MASK(nbits);
 }
 

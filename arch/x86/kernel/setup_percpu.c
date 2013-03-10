@@ -95,6 +95,7 @@ static bool __init pcpu_need_numa(void)
  * RETURNS:
  * Pointer to the allocated area on success, NULL on failure.
  */
+/* pcpu를 위한 bootmem 할당 */
 static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
 					unsigned long align)
 {
@@ -102,7 +103,9 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
 #ifdef CONFIG_NEED_MULTIPLE_NODES
 	int node = early_cpu_to_node(cpu);
 	void *ptr;
-
+  
+  /* node가 활성화안되어 있으면 일반 bootmem 사용. 활성화 되어 있으면
+   * 해당 node에 할당 */
 	if (!node_online(node) || !NODE_DATA(node)) {
 		ptr = __alloc_bootmem_nopanic(size, align, goal);
 		pr_info("cpu %d has no node %d or node-local memory\n",
@@ -134,6 +137,7 @@ static void __init pcpu_fc_free(void *ptr, size_t size)
 	free_bootmem(__pa(ptr), size);
 }
 
+/* percpu를 위한 cpu간 distance 반환 */
 static int __init pcpu_cpu_distance(unsigned int from, unsigned int to)
 {
 #ifdef CONFIG_NEED_MULTIPLE_NODES

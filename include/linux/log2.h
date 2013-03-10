@@ -182,6 +182,9 @@ unsigned long __rounddown_pow_of_two(unsigned long n)
  * - the result is undefined when n == 0
  * - this can be used to initialise global variables from constant data
  */
+/* int값 n을 받아서 근접한 2^x 수로 변환.
+ * 상수값일 경우, ilog2() 로 변형.
+ * result = 1 << log2(n) */
 #define rounddown_pow_of_two(n)			\
 (						\
 	__builtin_constant_p(n) ? (		\

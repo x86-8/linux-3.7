@@ -539,6 +539,7 @@ static inline void cpumask_copy(struct cpumask *dstp,
  * If len is zero, returns zero.  Otherwise returns the length of the
  * (nul-terminated) @buf string.
  */
+/* cpumask 정보를 comma로 나뉜 문자열로 buf에 저장 */
 static inline int cpumask_scnprintf(char *buf, int len,
 				    const struct cpumask *srcp)
 {

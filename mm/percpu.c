@@ -201,13 +201,18 @@ static bool pcpu_addr_in_reserved_chunk(void *addr)
 /* pcpu size를 slot 갯수로 변환 */
 static int __pcpu_size_to_slot(int size)
 {
-  /* fls 함수 => "find last set bit in word" */
+  /* fls 함수 => MSB 찾기. ex) 5 = fls(32) */
 	int highbit = fls(size);	/* size is in bytes */
+  
+  /* PCPU_SLOT_BASE_SHIFT가 5인 이유는 0, 1번 slot이 공유(shared)되며, 31byte
+   * 이하는 해당 slot을 사용한다. hightbit가 5이상일(32byte) 때만 slot[2]부터 접근 */
 	return max(highbit - PCPU_SLOT_BASE_SHIFT + 2, 1);
 }
 
 static int pcpu_size_to_slot(int size)
 {
+	/* size가 pcpu_unit_size가 같다는 건 free_size에서 쓴 부분이
+		 없다는 것이므로, 뒤 쪽 index반환 */
 	if (size == pcpu_unit_size)
 		return pcpu_nr_slots - 1;
 	return __pcpu_size_to_slot(size);
@@ -215,9 +220,10 @@ static int pcpu_size_to_slot(int size)
 
 static int pcpu_chunk_slot(const struct pcpu_chunk *chunk)
 {
+  /* chunk의 사용가능한 영역이 4byte가 안될 때. 0번 slot */
 	if (chunk->free_size < sizeof(int) || chunk->contig_hint < sizeof(int))
 		return 0;
-
+  /* 사용가능 영역을 slot 갯수로 변환 */
 	return pcpu_size_to_slot(chunk->free_size);
 }
 
@@ -1088,6 +1094,7 @@ struct pcpu_alloc_info * __init pcpu_alloc_alloc_info(int nr_groups,
  *
  * Free @ai which was allocated by pcpu_alloc_alloc_info().
  */
+/* alloc_info 해제 */
 void __init pcpu_free_alloc_info(struct pcpu_alloc_info *ai)
 {
 	free_bootmem(__pa(ai), ai->__ai_size);
@@ -1100,6 +1107,7 @@ void __init pcpu_free_alloc_info(struct pcpu_alloc_info *ai)
  *
  * Print out information about @ai using loglevel @lvl.
  */
+/* ai 정보 출력 */
 static void pcpu_dump_alloc_info(const char *lvl,
 				 const struct pcpu_alloc_info *ai)
 {
@@ -1109,10 +1117,12 @@ static void pcpu_dump_alloc_info(const char *lvl,
 	int group, v;
 	int upa, apl;	/* units per alloc, allocs per line */
 
+  /* group_width = log10(ai->nr_groups) + 1 로 생각됨 */
 	v = ai->nr_groups;
 	while (v /= 10)
 		group_width++;
-
+  
+  /* cpu_width = log10(num_possible_cpus()) + 1 로 생각됨 */
 	v = num_possible_cpus();
 	while (v /= 10)
 		cpu_width++;
@@ -1303,7 +1313,8 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 		PCPU_SETUP_BUG_ON(unit_map[cpu] == UINT_MAX);
 
 	/* we're done parsing the input, undefine BUG macro and dump config */
-  /* ai로 부터 얻은 매핑 정보의 검증과 반영이 끝났음을 명시적으로 나타냄. */
+  /* ai로 부터 얻은 매핑 정보의 검증 및 pcpu 변수에 반영이 끝났음을
+   * 명시적으로 나타냄. */
 #undef PCPU_SETUP_BUG_ON
 	pcpu_dump_alloc_info(KERN_DEBUG, ai);
 
@@ -1330,9 +1341,14 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	 * Allocate chunk slots.  The additional last slot is for
 	 * empty chunks.
 	 */
-  /* unit_size를 slot 갯수로 변환해서, slot 개체 할당 */
-  /* HELPME: 마지막 slot 2개의 count가 왜 2개가 추가되는지, 어떻게
-   * slot 갯수로 바뀌는지 확인 필요 */
+  /* unit_size를 slot 갯수로 변환해서, slot 개체 할당되는데, 적어도 최소 3개의 Slot 생성.
+     2를 더하는 이유는 4byte 이하 slot과 additional slot등의 추가로 최소 3개를 맞추기 위해서...
+     
+    slot[0] => free_size < 4byte
+    slot[1] => free_size < 32byte
+    ...
+    slot[n] => free_size >= 32byte, n = ((fls(free_size) - 5) + 2)
+   */
 	pcpu_nr_slots = __pcpu_size_to_slot(pcpu_unit_size) + 2;
 	pcpu_slot = alloc_bootmem(pcpu_nr_slots * sizeof(pcpu_slot[0]));
 	for (i = 0; i < pcpu_nr_slots; i++)
@@ -1351,6 +1367,7 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	schunk->map = smap;
 	schunk->map_alloc = ARRAY_SIZE(smap);
 	schunk->immutable = true;
+  /* pcpu_unit_pages bit만큼을 populated에 입력(bitmap형태로) */
 	bitmap_fill(schunk->populated, pcpu_unit_pages);
 
   /* reserved_size에 따라 dchunk를 쓸지, schunk를 쓸지 나뉘고, schunk가
@@ -1358,6 +1375,8 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	if (ai->reserved_size) {
     /* dchunk 사용. schunk는 static_size + reserved_size 담당 */
 		schunk->free_size = ai->reserved_size;
+    /* reserved_size가 있으면 first chunk 는 dynamic chunk가 되므로,
+     * reserved chunk는 static chunk가 된다 */
 		pcpu_reserved_chunk = schunk;
 		pcpu_reserved_chunk_limit = ai->static_size + ai->reserved_size;
 	} else {
@@ -1365,10 +1384,12 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 		schunk->free_size = dyn_size;
 		dyn_size = 0;			/* dynamic area covered */
 	}
-  /* free_size는 초기에 연속적인 공간으로 나타내지는 것으로 보임 */
+  /* contig_hint는 map에서 쓸수 있는 가장 큰 연속적인 공간  */
 	schunk->contig_hint = schunk->free_size;
 
-  /* schunk(정확히는 map)에 할당된 static_size와 free_size 반영 */
+  /* schunk(정확히는 map)에, 사용중인 공간인 static_size, 비어있는
+   * 공간인 free_size 반영. map은 사용하거나 비어있는 공간의 크기
+   * 나타냄(음수: 사용 중인 size, 양수: 사용할 수 있는 size) */
 	schunk->map[schunk->map_used++] = -ai->static_size;
 	if (schunk->free_size)
 		schunk->map[schunk->map_used++] = schunk->free_size;
@@ -1390,8 +1411,8 @@ int __init pcpu_setup_first_chunk(const struct pcpu_alloc_info *ai,
 	}
 
 	/* link the first chunk in */
-  /* pcpu fc 를 dchunk가 있으면 dchunk 아니면 schunk 사용하는 구조 */
-  /* HELPME: schunk는 어디로 가는 거지? */
+  /* pcpu fc 를 dchunk가 있으면 dchunk 아니면 schunk 사용. schunk는
+   * pcpu_reserved_chunk로 등록되어 있음 */
 	pcpu_first_chunk = dchunk ?: schunk;
 	pcpu_chunk_relocate(pcpu_first_chunk, -1);
 
@@ -1722,8 +1743,8 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 		kmemleak_free(ptr);
 		areas[group] = ptr;
 
-                /* HELPME: unit값들 중 큰값으로 base를 갱신하는데, 이유
-                   모르겠음 */
+		/* HELPME: unit값들 중 큰값으로 base를 갱신하는데, 이유
+			모르겠음 */
 		base = min(ptr, base);
 	}
 
@@ -1790,6 +1811,7 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size, // 8KB,
 		PFN_DOWN(size_sum), base, ai->static_size, ai->reserved_size,
 		ai->dyn_size, ai->unit_size);
 
+  /* first_chunk 설정 */
 	rc = pcpu_setup_first_chunk(ai, base);
 	goto out_free;
 
@@ -1799,6 +1821,7 @@ out_free_areas:
 			ai->groups[group].nr_units * ai->unit_size);
 out_free:
 	pcpu_free_alloc_info(ai);
+  /* group_info 배열 포인터 해제 */
 	if (areas)
 		free_bootmem(__pa(areas), areas_size);
 	return rc;
@@ -1837,17 +1860,21 @@ int __init pcpu_page_first_chunk(size_t reserved_size,
 
 	snprintf(psize_str, sizeof(psize_str), "%luK", PAGE_SIZE >> 10);
 
+  /* reserved_size = 8k, dyn_size = 0, atom_size = PAGE_SIZE(4k) */
 	ai = pcpu_build_alloc_info(reserved_size, 0, PAGE_SIZE, NULL);
 	if (IS_ERR(ai))
 		return PTR_ERR(ai);
 	BUG_ON(ai->nr_groups != 1);
 	BUG_ON(ai->groups[0].nr_units != num_possible_cpus());
 
+  /* unit 할당시 필요한 총 unit page 갯수 */
 	unit_pages = ai->unit_size >> PAGE_SHIFT;
 
 	/* unaligned allocations can't be freed, round up to page size */
+  /* 필요한 unit page만큼 할당.(정렬안되어 있으면 free 왜 못하지) */
 	pages_size = PFN_ALIGN(unit_pages * num_possible_cpus() *
 			       sizeof(pages[0]));
+  /* 할당될 page 주소를 가리킬 포인터 배열 alloc */
 	pages = alloc_bootmem(pages_size);
 
 	/* allocate pages */
@@ -1857,6 +1884,7 @@ int __init pcpu_page_first_chunk(size_t reserved_size,
 			unsigned int cpu = ai->groups[0].cpu_map[unit];
 			void *ptr;
 
+      /* page 할당 */
 			ptr = alloc_fn(cpu, PAGE_SIZE, PAGE_SIZE);
 			if (!ptr) {
 				pr_warning("PERCPU: failed to allocate %s page "
@@ -1865,10 +1893,12 @@ int __init pcpu_page_first_chunk(size_t reserved_size,
 			}
 			/* kmemleak tracks the percpu allocations separately */
 			kmemleak_free(ptr);
+      /* 가상 주소를 page주소(physical)로 변환해서 반영 */
 			pages[j++] = virt_to_page(ptr);
 		}
 
 	/* allocate vm area, map the pages and copy static data */
+  /* vmalloc 공간에 할당 */
 	vm.flags = VM_ALLOC;
 	vm.size = num_possible_cpus() * ai->unit_size;
 	vm_area_register_early(&vm, PAGE_SIZE);
