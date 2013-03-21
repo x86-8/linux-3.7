@@ -234,9 +234,24 @@ void __init setup_per_cpu_areas(void)
 	/* alrighty, percpu areas up and running */
 	delta = (unsigned long)pcpu_base_addr - (unsigned long)__per_cpu_start;
 	for_each_possible_cpu(cpu) {
+    /*
+     * per_cpu_offset()은 percpu variable에 더해져야만 하는 offset이다. 
+     * 목적은 certain processor 까지의 거리를 위하여 존재.
+     * 대부분의 아키텍쳐는 __per_cpu_offset array를 사용하지만 x86_64는 자신만의 방법이 존재
+     */
+
+    /* fc를 초기화 할 때 얻었던, unit offset에 차이값을 더해, 각각 cpu 오프셋을 구해준다 */
 		per_cpu_offset(cpu) = delta + pcpu_unit_offsets[cpu];
+    /*this_cpu_off라는 포인터에다가 offset저장*/
 		per_cpu(this_cpu_off, cpu) = per_cpu_offset(cpu);
+    /*cpu number도 함께 저장해준다.*/
 		per_cpu(cpu_number, cpu) = cpu;
+    
+    /*
+     * x86_64에서는 percpu_segment와 canary를 사용하지 않는다.
+     * canary에 대한 설명은 http://studyfoss.egloos.com/5279959
+     * 에서 찾아볼 수 있도록 한다. 
+     */
 		setup_percpu_segment(cpu);
 		setup_stack_canary_segment(cpu);
 		/*
@@ -247,6 +262,7 @@ void __init setup_per_cpu_areas(void)
 		 * gone.
 		 */
 #ifdef CONFIG_X86_LOCAL_APIC
+    /* 기존에 구했던(early) apicid를 pcpu로 이동. */
 		per_cpu(x86_cpu_to_apicid, cpu) =
 			early_per_cpu_map(x86_cpu_to_apicid, cpu);
 		per_cpu(x86_bios_cpu_apicid, cpu) =
@@ -257,11 +273,15 @@ void __init setup_per_cpu_areas(void)
 			early_per_cpu_map(x86_cpu_to_logical_apicid, cpu);
 #endif
 #ifdef CONFIG_X86_64
+    /* 각각의 cpu에 irq stack pointer지정. gs+canary영역이 48
+     * byte인데, irq_stack을 보호하기 위해 18 byte만큼을 더 둔 것으로
+     * 보임(정확하지 않음) */
 		per_cpu(irq_stack_ptr, cpu) =
 			per_cpu(irq_stack_union.irq_stack, cpu) +
 			IRQ_STACK_SIZE - 64;
 #endif
 #ifdef CONFIG_NUMA
+    /* 기존에 구했던(early) NUMA 정보 역시 pcpu로 이동. */
 		per_cpu(x86_cpu_to_node_map, cpu) =
 			early_per_cpu_map(x86_cpu_to_node_map, cpu);
 		/*

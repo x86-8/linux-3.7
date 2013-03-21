@@ -18,4 +18,5 @@ Study history (날짜:인원:내용)
 92. 2013/02/16:04:*init/main.c* - setup_per_cpu_areas - pcpu_embed_first_chunk - pcpu_build_alloc_info | @jminrang님 복귀
 93. 2013/02/23:03:*init/main.c* - setup_per_cpu_areas - pcpu_embed_first_chunk
 94. 2013/03/02:04:*init/main.c* - setup_per_cpu_areas - pcpu_embed_first_chunk - pcpu_setup_first_chunk | 2주만 더하면 되려나
-95. 2013/03/09:02:*init/main.c* - setup_per_cpu_areas - pcpu_page_first_chunk 
+95. 2013/03/09:02:*init/main.c* - setup_per_cpu_areas - pcpu_page_first_chunk
+96. 2013/03/16:04:*init/main.c* - setup_per_cpu_ares | setup_per_cpu_ares() 종료

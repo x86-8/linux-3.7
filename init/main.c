@@ -525,7 +525,8 @@ asmlinkage void __init start_kernel(void)
 	setup_nr_cpu_ids();
 
         /**
-         * 
+         * per_cpu 영역을 설정한다. first chunk를 할당을 한 뒤, 기존에
+         * 있던(early) pcpu영역을 실제 pcpu로 이전한다.
          */
 	setup_per_cpu_areas();
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */

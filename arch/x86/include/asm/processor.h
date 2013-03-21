@@ -406,6 +406,7 @@ struct fpu {
 DECLARE_PER_CPU(struct orig_ist, orig_ist);
 
 union irq_stack_union {
+  /* irq 스택 32k */
 	char irq_stack[IRQ_STACK_SIZE];
 	/*
 	 * GCC hardcodes the stack canary as %gs:40.  Since the
