@@ -88,6 +88,8 @@ extern void set_cpu_sibling_map(int cpu);
 #ifndef CONFIG_PARAVIRT
 #define startup_ipi_hook(phys_apicid, start_eip, start_esp) do { } while (0)
 #endif
+
+/* x86은 x86/kernel/smp.c */
 extern struct smp_ops smp_ops;
 
 static inline void smp_send_stop(void)

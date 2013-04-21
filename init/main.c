@@ -529,6 +529,11 @@ asmlinkage void __init start_kernel(void)
          * 있던(early) pcpu영역을 실제 pcpu로 이전한다.
          */
 	setup_per_cpu_areas();
+  
+  /**
+   * native_smp_prepare_boot_cpu() 를 호출해서, BSProcessor의 segment를
+   * 설정
+   */
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
 
 	build_all_zonelists(NULL, NULL);

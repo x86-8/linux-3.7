@@ -292,6 +292,8 @@ enum zone_type {
 	 * performed on pages in ZONE_NORMAL if the DMA devices support
 	 * transfers to all addressable memory.
 	 */
+  /* DMA device가 모든 접근 가능한 메모리 영역에 쓸수 있다면, DMA
+   * 동작이 NORMAL 영역을 사용할 수 있음 */
 	ZONE_NORMAL,
 #ifdef CONFIG_HIGHMEM
 	/*

@@ -375,9 +375,11 @@ void load_percpu_segment(int cpu)
 #ifdef CONFIG_X86_32
 	loadsegment(fs, __KERNEL_PERCPU);
 #else
+  /* 세그먼트 로드, gs_base주소를 msr_gs_base에 써넣음 */
 	loadsegment(gs, 0);
 	wrmsrl(MSR_GS_BASE, (unsigned long)per_cpu(irq_stack_union.gs_base, cpu));
 #endif
+  /* canary segment엔 32bit 코드만 존재함 */
 	load_stack_canary_segment();
 }
 
@@ -385,12 +387,17 @@ void load_percpu_segment(int cpu)
  * Current gdt points %fs at the "master" per-cpu area: after this,
  * it's on the real one.
  */
+/* 이 함수 이후로 gdt가 실제, cpu 영역을 나타내는 것으로 보임.
+ * %fs는 32bit 에서 data_area(percpu)를 base 주소를 갖고 있고,
+ * 64bit에서는 %gs가 processor_data_area(percpu)를 갖고 있음. */
 void switch_to_new_gdt(int cpu)
 {
 	struct desc_ptr gdt_descr;
 
+  /* 해당 cpu(percpu구조)에서 gdt를 얻어온다 */
 	gdt_descr.address = (long)get_cpu_gdt_table(cpu);
 	gdt_descr.size = GDT_SIZE - 1;
+  /* native_load_gdt() 호출(내부적으로 lgdt 명령을 사용하여, 새로운 gdt 테이블 로드) */
 	load_gdt(&gdt_descr);
 	/* Reload the per-cpu base */
 

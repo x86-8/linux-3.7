@@ -1072,11 +1072,14 @@ void arch_enable_nonboot_cpus_end(void)
 /*
  * Early setup to make printk work.
  */
+/* HELPME: printk작업을 하도록 만든다? */
 void __init native_smp_prepare_boot_cpu(void)
 {
 	int me = smp_processor_id();
 	switch_to_new_gdt(me);
 	/* already set me in cpu_online_mask in boot_cpu_init() */
+  /* HELPME: cpu_online_mask에 설정되어 있는데, callout_mask도 설정하는지
+   * 모르겠음*/
 	cpumask_set_cpu(me, cpu_callout_mask);
 	per_cpu(cpu_state, me) = CPU_ONLINE;
 }

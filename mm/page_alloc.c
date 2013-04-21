@@ -3182,6 +3182,9 @@ static int node_load[MAX_NUMNODES];
  * on them otherwise.
  * It returns -1 if no node is found.
  */
+/* 주어진 node의 fallback list로부터, 다음 node를 찾는다. 다음 node는
+ * distance array에서 찾은 최소 거리의 node이고, CPU가 전혀 없어야
+ * 한다. */
 static int find_next_best_node(int node, nodemask_t *used_node_mask)
 {
 	int n, val;
@@ -3189,14 +3192,17 @@ static int find_next_best_node(int node, nodemask_t *used_node_mask)
 	int best_node = -1;
 	const struct cpumask *tmp = cpumask_of_node(0);
 
+  /* 주어진 node가 사용된 node가 아니면, 바로 사용. */
 	/* Use the local node if we haven't already */
 	if (!node_isset(node, *used_node_mask)) {
 		node_set(node, *used_node_mask);
 		return node;
 	}
 
+  /* N_HIGH_MEMORY(N_MEMORY) state인 모든 node*/
 	for_each_node_state(n, N_HIGH_MEMORY) {
 
+       /* 한번 쓴 node는 다시 쓰지 않는다 */
 		/* Don't want a node to appear more than once */
 		if (node_isset(n, *used_node_mask))
 			continue;
@@ -3204,24 +3210,36 @@ static int find_next_best_node(int node, nodemask_t *used_node_mask)
 		/* Use the distance array to find the distance */
 		val = node_distance(node, n);
 
+    /* 현재 node보다 다음 노드 선호. 현 node보다 작으면, 페널티 부여.
+       페널티의 부여는 기술적인 의미보다, 다음(뒷) node를 선택하기 위한
+       방법 */
 		/* Penalize nodes under us ("prefer the next node") */
 		val += (n < node);
 
+    /* CPU가 붙어 있으면, 페널티 부여(CPU가 없고, 사용하지 않는 노드
+     * 선호) */
 		/* Give preference to headless and unused nodes */
 		tmp = cpumask_of_node(n);
 		if (!cpumask_empty(tmp))
 			val += PENALTY_FOR_NODE_WITH_CPUS;
 
+    /* load가 적게 걸리는 node 선호. (MAX_NODE_LOAD * MAX_NUMNODES) 를
+     * 곱해줘서 스케일을 크게 만드는 것은, 위에서 준 페널티보다
+     * node 선택에 영향을 덜 주기 위해서이다. 기존에 페널티를 받았다면,
+     * 스케일을 곱해주었을때, node선택할때에 페널티의 의미가 생긴다
+     */
 		/* Slight preference for less loaded node */
 		val *= (MAX_NODE_LOAD*MAX_NUMNODES);
 		val += node_load[n];
 
+    /* best_node 갱신 */
 		if (val < min_val) {
 			min_val = val;
 			best_node = n;
 		}
 	}
 
+  /* best_node가 있다면, 해당 node를 사용상태로 변경  */
 	if (best_node >= 0)
 		node_set(best_node, *used_node_mask);
 
@@ -3306,13 +3324,20 @@ static int default_zonelist_order(void)
 	 * into OOM very easily.
 	 * This function detect ZONE_DMA/DMA32 size and configures zone order.
 	 */
+  /* DMA영역을 빈번이 쓰는데, 영역 크기가 작게 설정되어 있으면, 쉽게 OOM가 발생하므로,
+   * 존 순서를 결정한다. */
+  
 	/* Is there ZONE_NORMAL ? (ex. ppc has only DMA zone..) */
 	low_kmem_size = 0;
 	total_size = 0;
+  /* NODE에 ZONE_NORMAL이 있으면, ZONE ORDER를 NODE distance
+   * ORDER방식을 따르고, 아니면, ZONE ORDER를 따른다. 단, NODE dist.와
+   * ZONE 방식은 NUMA일 경우에만 선택 가능 */
 	for_each_online_node(nid) {
 		for (zone_type = 0; zone_type < MAX_NR_ZONES; zone_type++) {
 			z = &NODE_DATA(nid)->node_zones[zone_type];
 			if (populated_zone(z)) {
+        /* NODE에 ZONE이 존재하면, DMA/DMA32일 때 lowmem영역을 계산. */
 				if (zone_type < ZONE_NORMAL)
 					low_kmem_size += z->present_pages;
 				total_size += z->present_pages;
@@ -3324,10 +3349,18 @@ static int default_zonelist_order(void)
 				 * on other nodes when there is an abundance of
 				 * lowmem available to allocate from.
 				 */
+           /* NODE에 ZONE_NORMAL이 없으면, 결국, lowmem만을 가지고
+            * 있음을 의미. NODE가 lowmem만을 가지고 있으면, 다른
+            * NODE가 lowmem을 쓰기 위해, 해당 NODE 영역 침해가 쉽게
+            * 된다. NODE dist.방식을 따르면, 커널 내부적으로
+            * 할당(사용)하도록 한다. */
 				return ZONELIST_ORDER_NODE;
 			}
 		}
 	}
+  /* DMA영역이 아예 없거나, DMA영역이 너무 크다면, NODE dist. 방식을
+   * 사용. DMA 장치가 지원한다면, ZONE_NORMAL을 DMA 영역으로 사용할 수
+   * 있음. */
 	if (!low_kmem_size ||  /* there are no DMA area. */
 	    low_kmem_size > total_size/2) /* DMA/DMA32 is big. */
 		return ZONELIST_ORDER_NODE;
@@ -3336,9 +3369,15 @@ static int default_zonelist_order(void)
   	 * If there is a node whose DMA/DMA32 memory is very big area on
  	 * local memory, NODE_ORDER may be suitable.
          */
+  /* NODE의 메모리가 충분히 크면서, DMA/DMA32 영역 역시 크다면, ZONE
+   * ORDER보다 NODE (dist.) ORDER 를 쓰기 적합. average_size는 만족하는
+   * 최소 메모리 크기를 말함. */
+  /* avrg_size = (전체 메모리크기) / (NORMAL 메모리를 가진 노드 갯수 + 1) */
 	average_size = total_size /
 				(nodes_weight(node_states[N_HIGH_MEMORY]) + 1);
 	for_each_online_node(nid) {
+       /* 위와 유사하지만, 아랫 부분은 각 NODE의 lowmem, total
+        * mem을 계산하는 loop. */
 		low_kmem_size = 0;
 		total_size = 0;
 		for (zone_type = 0; zone_type < MAX_NR_ZONES; zone_type++) {
@@ -3349,22 +3388,29 @@ static int default_zonelist_order(void)
 				total_size += z->present_pages;
 			}
 		}
+    /* 어떤 NODE의 각 lowmem이 NODE의 총 mem의 70% 이상이라면, NODE
+     *  dist.방식을 사용. */
 		if (low_kmem_size &&
 		    total_size > average_size && /* ignore small node */
 		    low_kmem_size > total_size * 70/100)
 			return ZONELIST_ORDER_NODE;
 	}
+  /* NODE (dist.) ORDER를 쓸 수 없으면, ZONE ORDER 사용 */
 	return ZONELIST_ORDER_ZONE;
 }
 
+/* NUMA니까 이 함수 호출. */
 static void set_zonelist_order(void)
 {
+     /* user_zone_liste_order가 기본 ZONE 순서이면,
+      *  zonelist 순서 방식을 결정. */
 	if (user_zonelist_order == ZONELIST_ORDER_DEFAULT)
 		current_zonelist_order = default_zonelist_order();
 	else
 		current_zonelist_order = user_zonelist_order;
 }
 
+/* pg_data를 가지고 zonelists 생성 */
 static void build_zonelists(pg_data_t *pgdat)
 {
 	int j, node, load;
@@ -3382,6 +3428,7 @@ static void build_zonelists(pg_data_t *pgdat)
 	}
 
 	/* NUMA-aware ordering of nodes */
+  /* NUMA를 고려한 node의 순서 설정 */
 	local_node = pgdat->node_id;
 	load = nr_online_nodes;
 	prev_node = local_node;
@@ -3396,6 +3443,11 @@ static void build_zonelists(pg_data_t *pgdat)
 		 * So adding penalty to the first node in same
 		 * distance group to make it round-robin.
 		 */
+       /* prev_node -> curr_node, curr_node -> next_node 거리가
+        * 다르면, load(overhead)값 부여. */
+       /* HELPME: 그런데, node_distance가 다를 경우, load가 항상 큰
+        * 값부터 들어가게 되면, next_best_node가 의미없지 않나
+        * 싶은데 */
 		if (node_distance(local_node, node) !=
 		    node_distance(local_node, prev_node))
 			node_load[node] = load;
@@ -3587,8 +3639,10 @@ static int __build_all_zonelists(void *data)
  */
 void __ref build_all_zonelists(pg_data_t *pgdat, struct zone *zone)
 {
+     /* zonelist ORDER를 결정(NUMA는 NODE ORDER를 고려한다.) */
 	set_zonelist_order();
 
+  /* 최초 접근시 system_state => BOOTING */
 	if (system_state == SYSTEM_BOOTING) {
 		__build_all_zonelists(NULL);
 		mminit_verify_zonelist();
