@@ -3046,12 +3046,17 @@ static int build_zonelists_node(pg_data_t *pgdat, struct zonelist *zonelist,
 	BUG_ON(zone_type >= MAX_NR_ZONES);
 	zone_type++;
 
+	/*
+	 * pgdat에 있는 node_zone에 대한 reference를 zonlist의 zoneref배열의 끝에
+	 * 추가한다.
+	 */
 	do {
 		zone_type--;
 		zone = pgdat->node_zones + zone_type;
 		if (populated_zone(zone)) {
 			zoneref_set_zone(zone,
 				&zonelist->_zonerefs[nr_zones++]);
+			/* 예상 : populated_zone 중에서 가장 높은 zone을 policy_zone에 저장 */
 			check_highest_zone(zone_type);
 		}
 
@@ -3192,17 +3197,17 @@ static int find_next_best_node(int node, nodemask_t *used_node_mask)
 	int best_node = -1;
 	const struct cpumask *tmp = cpumask_of_node(0);
 
-  /* 주어진 node가 사용된 node가 아니면, 바로 사용. */
+	/* 주어진 node가 사용된 node가 아니면, 바로 사용. */
 	/* Use the local node if we haven't already */
 	if (!node_isset(node, *used_node_mask)) {
 		node_set(node, *used_node_mask);
 		return node;
 	}
 
-  /* N_HIGH_MEMORY(N_MEMORY) state인 모든 node*/
+	/* N_HIGH_MEMORY(N_MEMORY) state인 모든 node*/
 	for_each_node_state(n, N_HIGH_MEMORY) {
 
-       /* 한번 쓴 node는 다시 쓰지 않는다 */
+		/* 한번 쓴 node는 다시 쓰지 않는다 */
 		/* Don't want a node to appear more than once */
 		if (node_isset(n, *used_node_mask))
 			continue;
@@ -3210,36 +3215,36 @@ static int find_next_best_node(int node, nodemask_t *used_node_mask)
 		/* Use the distance array to find the distance */
 		val = node_distance(node, n);
 
-    /* 현재 node보다 다음 노드 선호. 현 node보다 작으면, 페널티 부여.
-       페널티의 부여는 기술적인 의미보다, 다음(뒷) node를 선택하기 위한
-       방법 */
+		/* 현재 node보다 다음 노드 선호. 현 node보다 작으면, 페널티 부여.
+		   페널티의 부여는 기술적인 의미보다, 다음(뒷) node를 선택하기 위한
+		   방법 */
 		/* Penalize nodes under us ("prefer the next node") */
 		val += (n < node);
 
-    /* CPU가 붙어 있으면, 페널티 부여(CPU가 없고, 사용하지 않는 노드
-     * 선호) */
+		/* CPU가 붙어 있으면, 페널티 부여(CPU가 없고, 사용하지 않는 노드
+		 * 선호) */
 		/* Give preference to headless and unused nodes */
 		tmp = cpumask_of_node(n);
 		if (!cpumask_empty(tmp))
 			val += PENALTY_FOR_NODE_WITH_CPUS;
 
-    /* load가 적게 걸리는 node 선호. (MAX_NODE_LOAD * MAX_NUMNODES) 를
-     * 곱해줘서 스케일을 크게 만드는 것은, 위에서 준 페널티보다
-     * node 선택에 영향을 덜 주기 위해서이다. 기존에 페널티를 받았다면,
-     * 스케일을 곱해주었을때, node선택할때에 페널티의 의미가 생긴다
-     */
+		/* load가 적게 걸리는 node 선호. (MAX_NODE_LOAD * MAX_NUMNODES) 를
+		 * 곱해줘서 스케일을 크게 만드는 것은, 위에서 준 페널티보다
+		 * node 선택에 영향을 덜 주기 위해서이다. 기존에 페널티를 받았다면,
+		 * 스케일을 곱해주었을때, node선택할때에 페널티의 의미가 생긴다
+		 */
 		/* Slight preference for less loaded node */
 		val *= (MAX_NODE_LOAD*MAX_NUMNODES);
 		val += node_load[n];
 
-    /* best_node 갱신 */
+		/* best_node 갱신 */
 		if (val < min_val) {
 			min_val = val;
 			best_node = n;
 		}
 	}
 
-  /* best_node가 있다면, 해당 node를 사용상태로 변경  */
+	/* best_node가 있다면, 해당 node를 사용상태로 변경  */
 	if (best_node >= 0)
 		node_set(best_node, *used_node_mask);
 
@@ -3252,12 +3257,18 @@ static int find_next_best_node(int node, nodemask_t *used_node_mask)
  * This results in maximum locality--normal zone overflows into local
  * DMA zone, if any--but risks exhausting DMA zone.
  */
+/*
+ * pgdat->node_zonelists[0]->_zonerefs[]의 끝에
+ * node->node_zones[]의 각 zone에 대한 reference를
+ * 차례로 등록한다.
+ */
 static void build_zonelists_in_node_order(pg_data_t *pgdat, int node)
 {
 	int j;
 	struct zonelist *zonelist;
 
 	zonelist = &pgdat->node_zonelists[0];
+	/* 가장 _zonerefs 배열중 가장 큰 값을 j변수에 저장 */
 	for (j = 0; zonelist->_zonerefs[j].zone != NULL; j++)
 		;
 	j = build_zonelists_node(NODE_DATA(node), zonelist, j,
@@ -3418,6 +3429,7 @@ static void build_zonelists(pg_data_t *pgdat)
 	nodemask_t used_mask;
 	int local_node, prev_node;
 	struct zonelist *zonelist;
+	/* current_zonlist_order = 대략 ZONELIST_ORDER_NODE임. set_zonelist_order()에서 설정 */
 	int order = current_zonelist_order;
 
 	/* initialize zonelists */
@@ -3428,32 +3440,53 @@ static void build_zonelists(pg_data_t *pgdat)
 	}
 
 	/* NUMA-aware ordering of nodes */
-  /* NUMA를 고려한 node의 순서 설정 */
+	/* NUMA를 고려한 node의 순서 설정 */
 	local_node = pgdat->node_id;
 	load = nr_online_nodes;
 	prev_node = local_node;
+	/* bitmap_zero((&used_mask)->bits, MAX_NUMNODES); */
 	nodes_clear(used_mask);
 
 	memset(node_order, 0, sizeof(node_order));
 	j = 0;
 
+	/*
+	 * 해당 노드가 order == ZONELIST_ORDER_NODE 일 경우
+	 * local_node와 가장 가까운 노드 순서대로 build_zonelists_in_node_order()를 해줌.
+	 */
 	while ((node = find_next_best_node(local_node, &used_mask)) >= 0) {
+	        /*
+		 * find_next_best_node() : node_distance()가 적고
+		 *     headless node의 일 경우를 기준으로 선별 -> node변수에 저장
+		 *     node_distance()와 headless node의 값이 동일할 경우 node_load
+		 *     값이 적은 노드로 선별
+		 */
 		/*
 		 * We don't want to pressure a particular node.
 		 * So adding penalty to the first node in same
 		 * distance group to make it round-robin.
 		 */
-       /* prev_node -> curr_node, curr_node -> next_node 거리가
-        * 다르면, load(overhead)값 부여. */
-       /* HELPME: 그런데, node_distance가 다를 경우, load가 항상 큰
-        * 값부터 들어가게 되면, next_best_node가 의미없지 않나
-        * 싶은데 */
+		/* prev_node -> curr_node, curr_node -> node 거리가
+		 * 다르면, node_load[node]에 load(overhead)값 부여. */
+		/* HELPME: 그런데, node_distance가 다를 경우, load가 항상 큰
+		 * 값부터 들어가게 되면, next_best_node가 의미없지 않나
+		 * 싶은데 */
+	        /* => 추측해 보면 node_load[node]는 local_node와 가까울 수록 값이 크다.
+		 * 추후 find_next_best_node()에서 기존 가깝게 설정한 노드에게 penalty를 부여.
+		 * node_load[]는 find_next_best_node()에서(최후의 기준값으로)만 사용됨.
+		 */
 		if (node_distance(local_node, node) !=
 		    node_distance(local_node, prev_node))
 			node_load[node] = load;
 
 		prev_node = node;
 		load--;
+		/*
+		 * order == ZONELIST_ORDER_NODE 이면
+		 *     node의 zone들을 pgdat의 zonelist에 등록한다.
+		 * 그렇지 않으면 
+		 *     node_order 배열의 맨 끝에 저장한다.
+		 */
 		if (order == ZONELIST_ORDER_NODE)
 			build_zonelists_in_node_order(pgdat, node);
 		else
@@ -3593,6 +3626,12 @@ static int __build_all_zonelists(void *data)
 		build_zonelist_cache(self);
 	}
 
+	/*
+	  for_each_online_node(nid) :
+	  	for ((nid) = first_node(node_states[N_ONLINE]);	\
+		(nid) < MAX_NUMNODES;	\
+		(nid) = next_node((nid), (node_states[N_ONLINE])))
+	*/
 	for_each_online_node(nid) {
 		pg_data_t *pgdat = NODE_DATA(nid);
 

@@ -786,6 +786,9 @@ unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
  */
 #define zone_idx(zone)		((zone) - (zone)->zone_pgdat->node_zones)
 
+/*
+ * present_pages 존재하면 리턴 1
+ */
 static inline int populated_zone(struct zone *zone)
 {
 	return (!!zone->present_pages);
