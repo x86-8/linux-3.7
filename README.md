@@ -22,3 +22,4 @@ Study history (날짜:인원:내용)
 96. 2013/03/16:04:*init/main.c* - setup_per_cpu_ares | setup_per_cpu_ares() 종료
 97. 2013/03/23:04:*init/main.c* - 4명 왔으나, 스터디 진전없음
 98. 2013/04/20:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - build_zonelists
+99. 2013/04/27:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - build_zonelist_cache
