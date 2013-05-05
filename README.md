@@ -23,3 +23,4 @@ Study history (날짜:인원:내용)
 97. 2013/03/23:04:*init/main.c* - 4명 왔으나, 스터디 진전없음
 98. 2013/04/20:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - build_zonelists
 99. 2013/04/27:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - build_zonelist_cache
+100. 2013/05/04:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - local_memory_node

@@ -3027,6 +3027,7 @@ void show_free_areas(unsigned int filter)
 	show_swap_cache_info();
 }
 
+/* zoneref에 zone반영 */
 static void zoneref_set_zone(struct zone *zone, struct zoneref *zoneref)
 {
 	zoneref->zone = zone;
@@ -3037,6 +3038,11 @@ static void zoneref_set_zone(struct zone *zone, struct zoneref *zoneref)
  * Builds allocation fallback zone lists.
  *
  * Add all populated zones of a node to the zonelist.
+ */
+/* 사용가능한(populated) node_zone을 zonelist의 zoneref에 등록하고,
+ * 등록된 zone의 갯수(nr_zones) 반환. zone을 거꾸로 접근 하는 것은,
+ * 높은 type을 먼저쓰고(high, normal 등) DMA type을 아끼기 위함이
+ * 아닐까 싶음.
  */
 static int build_zonelists_node(pg_data_t *pgdat, struct zonelist *zonelist,
 				int nr_zones, enum zone_type zone_type)
@@ -3056,7 +3062,7 @@ static int build_zonelists_node(pg_data_t *pgdat, struct zonelist *zonelist,
 		if (populated_zone(zone)) {
 			zoneref_set_zone(zone,
 				&zonelist->_zonerefs[nr_zones++]);
-			/* 예상 : populated_zone 중에서 가장 높은 zone을 policy_zone에 저장 */
+      /* 가장 높은 zone_type을 policy zone으로 반영한다 */
 			check_highest_zone(zone_type);
 		}
 
@@ -3189,7 +3195,9 @@ static int node_load[MAX_NUMNODES];
  */
 /* 주어진 node의 fallback list로부터, 다음 node를 찾는다. 다음 node는
  * distance array에서 찾은 최소 거리의 node이고, CPU가 전혀 없어야
- * 한다. */
+ * 한다. 제일 처음 local_node를 입력하는데, used mask를
+ * 하고local_node를 반환한다
+ */
 static int find_next_best_node(int node, nodemask_t *used_node_mask)
 {
 	int n, val;
@@ -3268,7 +3276,7 @@ static void build_zonelists_in_node_order(pg_data_t *pgdat, int node)
 	struct zonelist *zonelist;
 
 	zonelist = &pgdat->node_zonelists[0];
-	/* 가장 _zonerefs 배열중 가장 큰 값을 j변수에 저장 */
+	/* 사용을 안하는 zonerefs index를 j에 저장 */
 	for (j = 0; zonelist->_zonerefs[j].zone != NULL; j++)
 		;
 	j = build_zonelists_node(NODE_DATA(node), zonelist, j,
@@ -3280,6 +3288,9 @@ static void build_zonelists_in_node_order(pg_data_t *pgdat, int node)
 /*
  * Build gfp_thisnode zonelists
  */
+/* zonelist[1]에 현재 node가 가지고 있는 zone을 등록. 아마
+ * GFP_THISNODE는 "현재 node의 빈페이지를 의미하는 것"으로 보임. 그래서
+ * 현재 node의 전체 zones가 들어갈 것으로 생각됨. */
 static void build_thisnode_zonelists(pg_data_t *pgdat)
 {
 	int j;
@@ -3308,6 +3319,7 @@ static void build_zonelists_in_zone_order(pg_data_t *pgdat, int nr_nodes)
 
 	zonelist = &pgdat->node_zonelists[0];
 	pos = 0;
+  /* 모든 zone과 node를 돌며, zone을 zonelist의 zoneref에 연결 */
 	for (zone_type = MAX_NR_ZONES - 1; zone_type >= 0; zone_type--) {
 		for (j = 0; j < nr_nodes; j++) {
 			node = node_order[j];
@@ -3315,10 +3327,12 @@ static void build_zonelists_in_zone_order(pg_data_t *pgdat, int nr_nodes)
 			if (populated_zone(z)) {
 				zoneref_set_zone(z,
 					&zonelist->_zonerefs[pos++]);
+      /* 가장 높은 zone_type을 policy zone으로 반영한다 */
 				check_highest_zone(zone_type);
 			}
 		}
 	}
+  /* 마지막 zonerefs를 비어있도록 설정 */
 	zonelist->_zonerefs[pos].zone = NULL;
 	zonelist->_zonerefs[pos].zone_idx = 0;
 }
@@ -3451,11 +3465,11 @@ static void build_zonelists(pg_data_t *pgdat)
 	j = 0;
 
 	/*
-	 * 해당 노드가 order == ZONELIST_ORDER_NODE 일 경우
-	 * local_node와 가장 가까운 노드 순서대로 build_zonelists_in_node_order()를 해줌.
+	 * 해당 노드가 order == ZONELIST_ORDER_NODE 일 경우 local_node와 가장
+	 * 가까운 노드 순서대로 build_zonelists_in_node_order()를 해줌.
 	 */
 	while ((node = find_next_best_node(local_node, &used_mask)) >= 0) {
-	        /*
+       /*
 		 * find_next_best_node() : node_distance()가 적고
 		 *     headless node의 일 경우를 기준으로 선별 -> node변수에 저장
 		 *     node_distance()와 headless node의 값이 동일할 경우 node_load
@@ -3493,15 +3507,18 @@ static void build_zonelists(pg_data_t *pgdat)
 			node_order[j++] = node;	/* remember order */
 	}
 
+  /* order == ZONELIST_ORDER_ZONE 일때, zonelists에 등록 */
 	if (order == ZONELIST_ORDER_ZONE) {
 		/* calculate node order -- i.e., DMA last! */
 		build_zonelists_in_zone_order(pgdat, j);
 	}
 
+  /* 현재 node의 node_zone을 전부 등록 */
 	build_thisnode_zonelists(pgdat);
 }
 
 /* Construct the zonelist performance cache - see further mmzone.h */
+/* zone_cache를 초기화 하고, 각각의 zone과 node(id)간의 매핑을 시킨다 */
 static void build_zonelist_cache(pg_data_t *pgdat)
 {
 	struct zonelist *zonelist;
@@ -3635,7 +3652,9 @@ static int __build_all_zonelists(void *data)
 	for_each_online_node(nid) {
 		pg_data_t *pgdat = NODE_DATA(nid);
 
+    /* node(=pgdata) 의 zonelist 생성 */
 		build_zonelists(pgdat);
+    /* node의 zone_cache를 초기화 하고, 각각의 zone과 node(id)간의 매핑을 시킨다 */
 		build_zonelist_cache(pgdat);
 	}
 
@@ -3652,9 +3671,17 @@ static int __build_all_zonelists(void *data)
 	 * needs the percpu allocator in order to allocate its pagesets
 	 * (a chicken-egg dilemma).
 	 */
+  /* boot_pageset은 offline상태인 각 processor들을 bootstrap하기 위해
+   * 필요하다. 실제 pageset은 나중에 percpu 할당자를 사용할 수 있을때
+   * 할당되게 되는데, pageset은 각 cpu들의 할당자를 초기화하는데
+   * 사용하게 된다... 그런데, percpu 할당자는 page 할당자를 필요하고,
+   * page 할당자는 percpu 할당자가 필요하는 문제가 발생하므로. 이를
+   * 해결하기 위해선 boot_pageset 초기화를 한다. */
 	for_each_possible_cpu(cpu) {
+       /* 각 boot_pageset 영역을 초기화 */
 		setup_pageset(&per_cpu(boot_pageset, cpu), 0);
 
+    /* CONFIG_HAVE_MEMORYLESS_NODES는 IA64에 있음 */
 #ifdef CONFIG_HAVE_MEMORYLESS_NODES
 		/*
 		 * We now know the "local memory node" for each node--
@@ -3664,6 +3691,13 @@ static int __build_all_zonelists(void *data)
 		 * secondary cpus' numa_mem as they come on-line.  During
 		 * node/memory hotplug, we'll fixup all on-line cpus.
 		 */
+    /* 각 노드의 내부 메모리 노드(처음 zone의 node)를 이제는 알고 있기
+     * 때문에, 각 on-line 상태인 cpu의 numa_mem 변수에 해당 node(id)를
+     * 설정한다.
+     *
+     * HELPME: 그런데, 해당 config와 아래 함수들은 특별히 IA64를 위해
+     * 따로 존재하는데, 속도 때문인가? 지원을 안하기 때문인가?
+     */
 		if (cpu_online(cpu))
 			set_cpu_numa_mem(cpu, local_memory_node(cpu_to_node(cpu)));
 #endif
@@ -3683,7 +3717,9 @@ void __ref build_all_zonelists(pg_data_t *pgdat, struct zone *zone)
 
   /* 최초 접근시 system_state => BOOTING */
 	if (system_state == SYSTEM_BOOTING) {
+       /* zonelist를 생성하고 초기화 */
 		__build_all_zonelists(NULL);
+    /* zonelist의 debug(log 출력)를 위해 존재. */
 		mminit_verify_zonelist();
 		cpuset_init_current_mems_allowed();
 	} else {
@@ -4013,6 +4049,7 @@ static int __meminit zone_batchsize(struct zone *zone)
 #endif
 }
 
+/* cpu당 pageset를 초기화 */
 static void setup_pageset(struct per_cpu_pageset *p, unsigned long batch)
 {
 	struct per_cpu_pages *pcp;
@@ -4024,6 +4061,8 @@ static void setup_pageset(struct per_cpu_pageset *p, unsigned long batch)
 	pcp->count = 0;
 	pcp->high = 6 * batch;
 	pcp->batch = max(1UL, 1 * batch);
+  /* HELPME: MIGRATETYPE는 page할당 type인것 같은데, 정확히 뭘 의미하는지
+     모르겠음. */
 	for (migratetype = 0; migratetype < MIGRATE_PCPTYPES; migratetype++)
 		INIT_LIST_HEAD(&pcp->lists[migratetype]);
 }

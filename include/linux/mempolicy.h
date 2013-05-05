@@ -154,6 +154,7 @@ extern unsigned slab_node(void);
 
 extern enum zone_type policy_zone;
 
+/* 가장 높은 zone_type을 policy zone으로 반영한다 */
 static inline void check_highest_zone(enum zone_type k)
 {
 	if (k > policy_zone && k != ZONE_MOVABLE)

@@ -615,10 +615,13 @@ static inline int zone_is_oom_locked(const struct zone *zone)
  * and then, the allocator will still function, perhaps a bit slower.
  */
 
-
+/* HELPME: MPOL_BIND랑 강하게 연계되어 있는데, MPOL_BIND가 처음 언급되는 듯? */
 struct zonelist_cache {
+     /* zone->node 매핑 */
 	unsigned short z_to_n[MAX_ZONES_PER_ZONELIST];		/* zone->nid */
+     /* zone의 free memory가 없을때, 변경됨(free memory 상태 파악) */
 	DECLARE_BITMAP(fullzones, MAX_ZONES_PER_ZONELIST);	/* zone full? */
+     /* fullzone을 1초마다 clear할때, 시간 반영 */
 	unsigned long last_full_zap;		/* when last zap'd (jiffies) */
 };
 #else
@@ -652,6 +655,10 @@ struct zoneref {
  * zonelist_zone_idx()	- Return the index of the zone for an entry
  * zonelist_node_idx()	- Return the index of the node for an entry
  */
+/* zonelist 처음 요소는 할당하기 위해 존재하고, 다른 것들은
+ * fallback으로 존재(뒤로 갈수록 우선순위 낮음)한다. zlcache와
+ * zlcache_ptr을 나눈 이유는 구조체 크기를 줄이기 위함(zlcache가 없으면
+ * ptr은 NULL이므로) */
 struct zonelist {
 	struct zonelist_cache *zlcache_ptr;		     // NULL or &zlcache
 	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];
