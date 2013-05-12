@@ -24,3 +24,4 @@ Study history (날짜:인원:내용)
 98. 2013/04/20:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - build_zonelists
 99. 2013/04/27:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - build_zonelist_cache
 100. 2013/05/04:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - local_memory_node
+101. 2013/05/11:02:*init/main.c* - page_alloc_init - page_alloc_cpu_notify

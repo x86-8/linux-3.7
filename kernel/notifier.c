@@ -17,16 +17,19 @@ BLOCKING_NOTIFIER_HEAD(reboot_notifier_list);
  *	Notifier chain core routines.  The exported routines below
  *	are layered on top of these, with appropriate locking added.
  */
-
+/* notifier list에 notifier 등록 */
 static int notifier_chain_register(struct notifier_block **nl,
 		struct notifier_block *n)
 {
+     /* notifier의 우선순위(ppiority)에 맞춰서 추가한다 */
 	while ((*nl) != NULL) {
 		if (n->priority > (*nl)->priority)
 			break;
 		nl = &((*nl)->next);
 	}
 	n->next = *nl;
+  /* notifier_block가 rcu로 보호되기 때문에, *nl에 n을 등록할때,
+   * rcu_assign_pointer를 사용하는 것으로 보인다. */
 	rcu_assign_pointer(*nl, n);
 	return 0;
 }
@@ -341,6 +344,7 @@ EXPORT_SYMBOL_GPL(blocking_notifier_call_chain);
  *
  *	Currently always returns zero.
  */
+/* notifier_chain에 notifier_block 등록 */
 int raw_notifier_chain_register(struct raw_notifier_head *nh,
 		struct notifier_block *n)
 {

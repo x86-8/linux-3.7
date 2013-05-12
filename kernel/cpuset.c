@@ -2236,6 +2236,8 @@ void cpuset_cpus_allowed_fallback(struct task_struct *tsk)
 
 void cpuset_init_current_mems_allowed(void)
 {
+     /* mems_allowed를 모두 1로 채운다 */
+     /* HELPME: mems_allowed가 어떤 역할을 하는지 모르겠음 */
 	nodes_setall(current->mems_allowed);
 }
 

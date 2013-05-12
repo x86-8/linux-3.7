@@ -114,6 +114,7 @@ enum {
 #ifdef CONFIG_SMP
 /* Need to know about CPUs going up/down? */
 #if defined(CONFIG_HOTPLUG_CPU) || !defined(MODULE)
+/* notifier_block을 만들고, cpu notifier_chain 에 등록 */
 #define cpu_notifier(fn, pri) {					\
 	static struct notifier_block fn##_nb __cpuinitdata =	\
 		{ .notifier_call = fn, .priority = pri };	\
@@ -175,6 +176,7 @@ extern struct bus_type cpu_subsys;
 
 extern void get_online_cpus(void);
 extern void put_online_cpus(void);
+/* HOTPLUG CPU를 지원하는 경우, cpu_notifier를 사용하여, 등록 */
 #define hotcpu_notifier(fn, pri)	cpu_notifier(fn, pri)
 #define register_hotcpu_notifier(nb)	register_cpu_notifier(nb)
 #define unregister_hotcpu_notifier(nb)	unregister_cpu_notifier(nb)

@@ -105,6 +105,7 @@ unsigned long totalreserve_pages __read_mostly;
  */
 unsigned long dirty_balance_reserve __read_mostly;
 
+/* Documentation/sysctl/vm.txt의 percpu_pagelist_fraction 참조 */
 int percpu_pagelist_fraction;
 gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
 
@@ -2786,12 +2787,18 @@ static unsigned int nr_free_zone_pages(int offset)
 	struct zone *zone;
 
 	/* Just pick one node, since fallback list is circular */
+  /* HELPME: GFP_KERNEL은 normal zonelist일텐데, 왜 fallback이 언급되는 건지?? */
 	unsigned int sum = 0;
 
+  /* GFP_KERNEL에 해당하는 nid의 zonelist를 가져온다 */
 	struct zonelist *zonelist = node_zonelist(numa_node_id(), GFP_KERNEL);
 
+  /* zonelist 끝(offset)까지 순회하면서,  */
 	for_each_zone_zonelist(zone, z, zonelist, offset) {
+    /* 해당 zone의 memory 총량 */
 		unsigned long size = zone->present_pages;
+    /* high는 해당 zone이 사용하는 양으로 보임 */
+    /* HELPME: high_wmark가 뭐지? */
 		unsigned long high = high_wmark_pages(zone);
 		if (size > high)
 			sum += size - high;
@@ -2812,6 +2819,7 @@ EXPORT_SYMBOL_GPL(nr_free_buffer_pages);
 /*
  * Amount of free RAM allocatable within all zones
  */
+/* 모든 zone의 남아 있는 page 총 량 */
 unsigned int nr_free_pagecache_pages(void)
 {
 	return nr_free_zone_pages(gfp_zone(GFP_HIGHUSER_MOVABLE));
@@ -3539,6 +3547,7 @@ static void build_zonelist_cache(pg_data_t *pgdat)
  * Used for initializing percpu 'numa_mem', which is used primarily
  * for kernel allocations, so use GFP_KERNEL flags to locate zonelist.
  */
+/* "지역" 할당에 사용된 노드의 nid 반환. */
 int local_memory_node(int node)
 {
 	struct zone *zone;
@@ -3729,9 +3738,12 @@ void __ref build_all_zonelists(pg_data_t *pgdat, struct zone *zone)
 		if (zone)
 			setup_zone_pageset(zone);
 #endif
+    /* 모든 irq를 중단(stop의 의미인가?)하고,
+     * __build_all_zonelists(pgdat)를 실행 */
 		stop_machine(__build_all_zonelists, pgdat, NULL);
 		/* cpuset refresh routine should be here */
 	}
+  /* 모든 zone의 남아 있는 page 총 량 */
 	vm_total_pages = nr_free_pagecache_pages();
 	/*
 	 * Disable grouping by mobility if the number of pages in the
@@ -3740,6 +3752,9 @@ void __ref build_all_zonelists(pg_data_t *pgdat, struct zone *zone)
 	 * made on memory-hotadd so a system can start with mobility
 	 * disabled and enable it later
 	 */
+  /* system 메모리 크기가 너무 작다면, 그룹짓기를 비활성화 한다. 꽤
+   * 정확한 방식이지만, 모든 존을 검사하기 때문에 좀 비효율적인 면이
+   * 있다. 이 검사는 메모리가 추가될때마다 그룹짓기 상태를 결정한다. */
 	if (vm_total_pages < (pageblock_nr_pages * MIGRATE_TYPES))
 		page_group_by_mobility_disabled = 1;
 	else
@@ -3999,6 +4014,7 @@ static void __meminit zone_init_free_lists(struct zone *zone)
 	memmap_init_zone((size), (nid), (zone), (start_pfn), MEMMAP_EARLY)
 #endif
 
+/* zone에서 batchsize를 계산 */
 static int __meminit zone_batchsize(struct zone *zone)
 {
 #ifdef CONFIG_MMU
@@ -4010,7 +4026,10 @@ static int __meminit zone_batchsize(struct zone *zone)
 	 *
 	 * OK, so we don't know how big the cache is.  So guess.
 	 */
+  /* zone의 총 페이지 갯수를 1k단위로 만든다 */
 	batch = zone->present_pages / 1024;
+  /* 512k 이상이면, 128k만 설정 */
+  /* HELPME: batch * PAGE_SIZE 부분에서 단위가 좀 안맞는 것 아닌가? */
 	if (batch * PAGE_SIZE > 512 * 1024)
 		batch = (512 * 1024) / PAGE_SIZE;
 	batch /= 4;		/* We effectively *= 4 below */
@@ -4071,7 +4090,7 @@ static void setup_pageset(struct per_cpu_pageset *p, unsigned long batch)
  * setup_pagelist_highmark() sets the high water mark for hot per_cpu_pagelist
  * to the value high for the pageset p.
  */
-
+/* pagelist의 high water mark할당 */
 static void setup_pagelist_highmark(struct per_cpu_pageset *p,
 				unsigned long high)
 {
@@ -4087,14 +4106,17 @@ static void setup_pagelist_highmark(struct per_cpu_pageset *p,
 static void __meminit setup_zone_pageset(struct zone *zone)
 {
 	int cpu;
-
+  
+  /* per_cpu_pageset 동적 할당 */
 	zone->pageset = alloc_percpu(struct per_cpu_pageset);
 
 	for_each_possible_cpu(cpu) {
-		struct per_cpu_pageset *pcp = per_cpu_ptr(zone->pageset, cpu);
+       struct per_cpu_pageset *pcp = per_cpu_ptr(zone->pageset, cpu);
 
+       /* cpu당 pageset를 batchsize만큼 초기화 */
 		setup_pageset(pcp, zone_batchsize(zone));
 
+    /* pagelist에 high_warter_mark 할당 */
 		if (percpu_pagelist_fraction)
 			setup_pagelist_highmark(pcp,
 				(zone->present_pages /
@@ -5143,12 +5165,15 @@ void __init free_area_init(unsigned long *zones_size)
 			__pa(PAGE_OFFSET) >> PAGE_SHIFT, NULL);
 }
 
+/* notifier에 등록된, cpu event 처리 함수 */
 static int page_alloc_cpu_notify(struct notifier_block *self,
 				 unsigned long action, void *hcpu)
 {
 	int cpu = (unsigned long)hcpu;
 
 	if (action == CPU_DEAD || action == CPU_DEAD_FROZEN) {
+       /* CPU_DEAD/DEAD_FROZEN상태인 cpu의 페이지들을 메모리에서
+        * 내린다 */
 		lru_add_drain_cpu(cpu);
 		drain_pages(cpu);
 

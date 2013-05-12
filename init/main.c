@@ -536,6 +536,8 @@ asmlinkage void __init start_kernel(void)
    */
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
 
+  /* 각 node에 대한 모든 zone를 만든다. list로 결정짓고, 각 zone으로
+   * 부터 memory 총 량등을 구한다 */
 	build_all_zonelists(NULL, NULL);
 	page_alloc_init();
 

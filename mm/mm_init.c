@@ -19,10 +19,12 @@ int mminit_loglevel;
 #endif
 
 /* The zonelists are simply reported, validation is manual. */
+/* zonelist 를 간단하게 출력 */
 void mminit_verify_zonelist(void)
 {
 	int nid;
 
+  /* log 레벨이 낮으면 실행하지 않는다 */
 	if (mminit_loglevel < MMINIT_VERIFY)
 		return;
 

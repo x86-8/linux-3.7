@@ -139,11 +139,16 @@ static void cpu_hotplug_done(void) {}
 #endif	/* #else #if CONFIG_HOTPLUG_CPU */
 
 /* Need to know about CPUs going up/down? */
+/* CPU up/down 상태 확인을 위해, cpu notifier_chain(cpu_chain)에
+ * notifier_block을 등록한다 */
 int __ref register_cpu_notifier(struct notifier_block *nb)
 {
 	int ret;
+  /* 뮤텍스 lock */
 	cpu_maps_update_begin();
+  /* notifier_block을 priority 순서에 맞게 cpu_chain에 추가. */
 	ret = raw_notifier_chain_register(&cpu_chain, nb);
+  /* 뮤텍스 unlock  */
 	cpu_maps_update_done();
 	return ret;
 }
