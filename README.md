@@ -25,3 +25,4 @@ Study history (날짜:인원:내용)
 99. 2013/04/27:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - build_zonelist_cache
 100. 2013/05/04:03:*init/main.c* - build_all_zonelists - __build_all_zonelists - local_memory_node
 101. 2013/05/11:02:*init/main.c* - page_alloc_init - page_alloc_cpu_notify
+101. 2013/05/18:02:*init/main.c* - page_alloc_init - page_alloc_cpu_notify - lru_add_drain_cpu - __pagevec_lru_add - pagevec_lru_move_fn - release_pages - free_hot_cold_page_list - free_hot_cold_page - free_pages_prepare

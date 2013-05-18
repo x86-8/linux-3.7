@@ -202,6 +202,7 @@ struct zone_reclaim_stat {
 struct lruvec {
 	struct list_head lists[NR_LRU_LISTS];
 	struct zone_reclaim_stat reclaim_stat;
+	 /* HELPME: CONFIG_MEMCG는 뭘까? */
 #ifdef CONFIG_MEMCG
 	struct zone *zone;
 #endif
@@ -250,6 +251,8 @@ struct per_cpu_pageset {
 	s8 expire;
 #endif
 #ifdef CONFIG_SMP
+	 /* HELPME: stat_threshold와 vm_stat_diff가 무슨 역할을 하고
+	  * 있는가? */
 	s8 stat_threshold;
 	s8 vm_stat_diff[NR_VM_ZONE_STAT_ITEMS];
 #endif
@@ -763,6 +766,7 @@ extern int init_currently_empty_zone(struct zone *zone, unsigned long start_pfn,
 
 extern void lruvec_init(struct lruvec *lruvec);
 
+/* lruvec로 부터 zone을 얻는다 */
 static inline struct zone *lruvec_zone(struct lruvec *lruvec)
 {
 #ifdef CONFIG_MEMCG

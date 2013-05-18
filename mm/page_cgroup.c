@@ -87,7 +87,7 @@ fail:
 }
 
 #else /* CONFIG_FLAT_NODE_MEM_MAP */
-
+/* CONFIG_SPARSE_MEM 환경에서 page_cgroup을 검색 */
 struct page_cgroup *lookup_page_cgroup(struct page *page)
 {
 	unsigned long pfn = page_to_pfn(page);

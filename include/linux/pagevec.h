@@ -39,6 +39,7 @@ static inline void pagevec_reinit(struct pagevec *pvec)
 	pvec->nr = 0;
 }
 
+/* pagevec의 count 반환 */
 static inline unsigned pagevec_count(struct pagevec *pvec)
 {
 	return pvec->nr;

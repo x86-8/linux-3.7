@@ -126,8 +126,10 @@ extern void mem_cgroup_replace_page_cache(struct page *oldpage,
 extern int do_swap_account;
 #endif
 
+/* mem_cgroup이 disabled되었는지 확인 */
 static inline bool mem_cgroup_disabled(void)
 {
+	 /* HELPME: disabled를 누가 하는거지? */
 	if (mem_cgroup_subsys.disabled)
 		return true;
 	return false;

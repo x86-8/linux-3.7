@@ -299,18 +299,24 @@ static void pagevec_lru_move_fn(struct pagevec *pvec,
 
 	for (i = 0; i < pagevec_count(pvec); i++) {
 		struct page *page = pvec->pages[i];
+		/* page가 포함된 zone을 의미 */
 		struct zone *pagezone = page_zone(page);
 
+		/* zone이 다를 경우(없는 경우 포함), zone을 갱신 */
 		if (pagezone != zone) {
+			 /* zone 값이 있다는 것은 lock이 걸려있음을 의미 */
 			if (zone)
 				spin_unlock_irqrestore(&zone->lru_lock, flags);
 			zone = pagezone;
 			spin_lock_irqsave(&zone->lru_lock, flags);
 		}
 
+		/* lock이 걸려 있으므로, lruvec을 얻어와서 page를 lruvec에
+		 * 등록한다 */
 		lruvec = mem_cgroup_page_lruvec(page, zone);
 		(*move_fn)(page, lruvec, arg);
 	}
+	/* zone 값이 있다는 것은 lock이 걸려있음을 의미 */
 	if (zone)
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
 	release_pages(pvec->pages, pvec->nr, pvec->cold);
@@ -367,6 +373,7 @@ static void update_page_reclaim_stat(struct lruvec *lruvec,
 {
 	struct zone_reclaim_stat *reclaim_stat = &lruvec->reclaim_stat;
 
+	/* HELPME: file과 active가 scanned와 rotated와 무슨 관계? */
 	reclaim_stat->recent_scanned[file]++;
 	if (rotated)
 		reclaim_stat->recent_rotated[file]++;
@@ -580,12 +587,14 @@ static void lru_deactivate_fn(struct page *page, struct lruvec *lruvec,
  * Either "cpu" is the current CPU, and preemption has already been
  * disabled; or "cpu" is being hot-unplugged, and is already dead.
  */
+/* cpu pagevecs의 page를 빼낸다 */
 void lru_add_drain_cpu(int cpu)
 {
 	struct pagevec *pvecs = per_cpu(lru_add_pvecs, cpu);
 	struct pagevec *pvec;
 	int lru;
 
+	/* page vector에 등록된 page가 있다면, lru에 추가 */
 	for_each_lru(lru) {
 		pvec = &pvecs[lru - LRU_BASE];
 		if (pagevec_count(pvec))
@@ -667,6 +676,9 @@ int lru_add_drain_all(void)
  * grabbed the page via the LRU.  If it did, give up: shrink_inactive_list()
  * will free it.
  */
+/* 넘어온 모든 pages의 ref count를 낮춘다. ref count가 0보다 작을
+ * 경우, LRU로부터 제거하고 free 한다. cold는 cold page, hot page type을
+ * 나타냄*/
 void release_pages(struct page **pages, int nr, int cold)
 {
 	int i;
@@ -678,6 +690,7 @@ void release_pages(struct page **pages, int nr, int cold)
 	for (i = 0; i < nr; i++) {
 		struct page *page = pages[i];
 
+		/* HELPME:Compound bit 가 뭘 의미하는 거지? 파보지 않았음 */
 		if (unlikely(PageCompound(page))) {
 			if (zone) {
 				spin_unlock_irqrestore(&zone->lru_lock, flags);
@@ -687,9 +700,13 @@ void release_pages(struct page **pages, int nr, int cold)
 			continue;
 		}
 
+		/* page ref count를 줄이고, 0이 아닐 경우 cotinue */
 		if (!put_page_testzero(page))
 			continue;
+		
+		/* ref count가 0일 경우 아랫 부분을 수행한다 */
 
+		/* page의 LRU bit가 있는 경우 */
 		if (PageLRU(page)) {
 			struct zone *pagezone = page_zone(page);
 
@@ -701,17 +718,20 @@ void release_pages(struct page **pages, int nr, int cold)
 				spin_lock_irqsave(&zone->lru_lock, flags);
 			}
 
+			/* page로부터 lruvec을 얻어온다 */
 			lruvec = mem_cgroup_page_lruvec(page, zone);
 			VM_BUG_ON(!PageLRU(page));
+			/* page의 LRU bit를 제거하고 lru_list로부터 제거 */
 			__ClearPageLRU(page);
 			del_page_from_lru_list(page, lruvec, page_off_lru(page));
 		}
 
+		/* page를 해제하기 위해 pages list에 등록 */
 		list_add(&page->lru, &pages_to_free);
 	}
 	if (zone)
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
-
+	/* pages list를 모두 해제 */
 	free_hot_cold_page_list(&pages_to_free, cold);
 }
 EXPORT_SYMBOL(release_pages);
@@ -786,20 +806,26 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
 }
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 
+/* page를 lru에 등록한다 */
 static void __pagevec_lru_add_fn(struct page *page, struct lruvec *lruvec,
 				 void *arg)
 {
 	enum lru_list lru = (enum lru_list)arg;
+	/* lru type이 file 타입인지? */
 	int file = is_file_lru(lru);
+	/* lru type이 active 타입인지? */
 	int active = is_active_lru(lru);
 
 	VM_BUG_ON(PageActive(page));
 	VM_BUG_ON(PageUnevictable(page));
 	VM_BUG_ON(PageLRU(page));
 
+	/* SetPageXXX 함수들은 PAGEFLAG 매크로 함수로 정의되며, page
+	 * flags의 해당 PG_XXX bit를 set한다 */
 	SetPageLRU(page);
 	if (active)
 		SetPageActive(page);
+    /* lru type의 lru 리스트에 page 등록하면서 갱신 */
 	add_page_to_lru_list(page, lruvec, lru);
 	update_page_reclaim_stat(lruvec, file, active);
 }
@@ -808,6 +834,7 @@ static void __pagevec_lru_add_fn(struct page *page, struct lruvec *lruvec,
  * Add the passed pages to the LRU, then drop the caller's refcount
  * on them.  Reinitialises the caller's pagevec.
  */
+/* pagevec을 lru에 추가한다 */
 void __pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
 {
 	VM_BUG_ON(is_unevictable_lru(lru));

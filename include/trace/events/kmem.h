@@ -168,7 +168,7 @@ TRACE_EVENT(mm_page_free,
 			page_to_pfn(__entry->page),
 			__entry->order)
 );
-
+/* trace_mm_page_free_batched() 함수 */
 TRACE_EVENT(mm_page_free_batched,
 
 	TP_PROTO(struct page *page, int cold),

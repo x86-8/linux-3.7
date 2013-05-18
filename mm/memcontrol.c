@@ -487,6 +487,7 @@ static void disarm_sock_keys(struct mem_cgroup *memcg)
 
 static void drain_all_stock_async(struct mem_cgroup *memcg);
 
+/* memcgroup, node id, zone index로부터 zone info 반환 */
 static struct mem_cgroup_per_zone *
 mem_cgroup_zoneinfo(struct mem_cgroup *memcg, int nid, int zid)
 {
@@ -498,9 +499,11 @@ struct cgroup_subsys_state *mem_cgroup_css(struct mem_cgroup *memcg)
 	return &memcg->css;
 }
 
+/* mem_cgroup으로부터 zoneinfo 을 구한다 */
 static struct mem_cgroup_per_zone *
 page_cgroup_zoneinfo(struct mem_cgroup *memcg, struct page *page)
 {
+	 /* page => node id, zone index 구한다 */
 	int nid = page_to_nid(page);
 	int zid = page_zonenum(page);
 
@@ -1094,6 +1097,7 @@ out:
  * @page: the page
  * @zone: zone of the page
  */
+/* lru page를 추가하기 위해서, lruvec를 반환. */
 struct lruvec *mem_cgroup_page_lruvec(struct page *page, struct zone *zone)
 {
 	struct mem_cgroup_per_zone *mz;
@@ -1101,11 +1105,13 @@ struct lruvec *mem_cgroup_page_lruvec(struct page *page, struct zone *zone)
 	struct page_cgroup *pc;
 	struct lruvec *lruvec;
 
+	/* mem_cgroup이 disabled되어 있으면, zone의 lruvec을 사용 */
 	if (mem_cgroup_disabled()) {
 		lruvec = &zone->lruvec;
 		goto out;
 	}
 
+	/* page_cgroup을 얻어서, mem_cgroup을 구한다 */
 	pc = lookup_page_cgroup(page);
 	memcg = pc->mem_cgroup;
 
@@ -1118,9 +1124,12 @@ struct lruvec *mem_cgroup_page_lruvec(struct page *page, struct zone *zone)
 	 * under page_cgroup lock: between them, they make all uses
 	 * of pc->mem_cgroup safe.
 	 */
+	/* page와 pcgroup이 해당되지 않으면, mem_cgroup을 root로 갱신(이미
+	 * 호출 부분에서 lock을 걸어놔서, 갱신시 안전하다는 말인 듯) */
 	if (!PageLRU(page) && !PageCgroupUsed(pc) && memcg != root_mem_cgroup)
 		pc->mem_cgroup = memcg = root_mem_cgroup;
 
+	/* memcg, page로 zone info 을 얻어온다 */
 	mz = page_cgroup_zoneinfo(memcg, page);
 	lruvec = &mz->lruvec;
 out:
@@ -1129,6 +1138,9 @@ out:
 	 * we have to be prepared to initialize lruvec->zone here;
 	 * and if offlined then reonlined, we need to reinitialize it.
 	 */
+	/* HELPME: mem_cgroup이 생성되고 나서, NODE가 온라인될 수 있다는데
+	 * 무슨 뜻? */
+	/* lruvec->zone을 초기화한다 */
 	if (unlikely(lruvec->zone != zone))
 		lruvec->zone = zone;
 	return lruvec;
@@ -1143,6 +1155,8 @@ out:
  * This function must be called when a page is added to or removed from an
  * lru list.
  */
+/* page가 추가되거나, lru list에서 제거 될때 호출되서, lru size를
+ * 갱신하는 함수 */
 void mem_cgroup_update_lru_size(struct lruvec *lruvec, enum lru_list lru,
 				int nr_pages)
 {
@@ -1152,7 +1166,8 @@ void mem_cgroup_update_lru_size(struct lruvec *lruvec, enum lru_list lru,
 	if (mem_cgroup_disabled())
 		return;
 
-	mz = container_of(lruvec, struct mem_cgroup_per_zone, lruvec);
+	/* lru type의 lru_size에 nr_pages만큼 갱신 */
+	mz = container_of(lruvec, struct mem_ᅵᅵᆫᆯcgroup_per_zone, lruvec);
 	lru_size = mz->lru_size + lru;
 	*lru_size += nr_pages;
 	VM_BUG_ON((long)(*lru_size) < 0);

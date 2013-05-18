@@ -1291,6 +1291,7 @@ void mark_free_pages(struct zone *zone)
  * Free a 0-order page
  * cold == 1 ? free a cold page : free a hot page
  */
+/* 0 order인 page를 해제한다 */
 void free_hot_cold_page(struct page *page, int cold)
 {
 	struct zone *zone = page_zone(page);
@@ -1339,12 +1340,17 @@ out:
 /*
  * Free a list of 0-order pages
  */
+/* 0order인 pages(list)를 해제한다. cold는 cold page, hot page type을
+ * 나타냄 */
 void free_hot_cold_page_list(struct list_head *list, int cold)
 {
 	struct page *page, *next;
 
 	list_for_each_entry_safe(page, next, list, lru) {
+		 /* TRACE_EVENT(mm_page_free_batched) 로 선언되어 있다 */
+		 /* HELPME: 분석 필요 */
 		trace_mm_page_free_batched(page, cold);
+		/* page를 해제한다 */
 		free_hot_cold_page(page, cold);
 	}
 }
