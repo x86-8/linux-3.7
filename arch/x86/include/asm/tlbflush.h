@@ -48,6 +48,12 @@ static inline void __native_flush_tlb_single(unsigned long addr)
 
 static inline void __flush_tlb_all(void)
 {
+	 /* pge를 가졌으면 __flush_tlb_global() =>
+	  * __native_flush_tlb_global()를 호출.  아니라면 __flush_tlb() =>
+	  * __native_flush_tlb 호출. CR4.PGE bit 또는 CR3를 쓸대 TLB
+	  * flush됨.*/
+	 /* HELPME: CR3와 CR4.PGE를 다시 쓰는 것으로 TLB flush관계 이해가
+	  * 덜 되었음 */
 	if (cpu_has_pge)
 		__flush_tlb_global();
 	else

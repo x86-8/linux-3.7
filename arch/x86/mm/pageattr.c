@@ -1303,6 +1303,8 @@ static int __set_pages_p(struct page *page, int numpages)
 	 * mappings (this adds to complexity if we want to do this from
 	 * atomic context especially). Let's keep it simple!
 	 */
+	/* cpa로 page attr 반영 */
+	/* HELPME: pageattr 부분은 파악못했음 */
 	return __change_page_attr_set_clr(&cpa, 0);
 }
 
@@ -1324,10 +1326,12 @@ static int __set_pages_np(struct page *page, int numpages)
 	return __change_page_attr_set_clr(&cpa, 0);
 }
 
+/* enable은 page를 할당/해제 */
 void kernel_map_pages(struct page *page, int numpages, int enable)
 {
 	if (PageHighMem(page))
 		return;
+	/* page 해제 */
 	if (!enable) {
 		debug_check_no_locks_freed(page_address(page),
 					   numpages * PAGE_SIZE);
@@ -1338,6 +1342,8 @@ void kernel_map_pages(struct page *page, int numpages, int enable)
 	 * Large pages for identity mappings are not used at boot time
 	 * and hence no memory allocations during large page split.
 	 */
+	/* p와 np함수의 차이는 같은 attr을 set하느냐, clear하느냐 차이 */
+	/* HELPME: pageattr 부분은 파악못했음 */
 	if (enable)
 		__set_pages_p(page, numpages);
 	else
@@ -1347,6 +1353,7 @@ void kernel_map_pages(struct page *page, int numpages, int enable)
 	 * We should perform an IPI and flush all tlbs,
 	 * but that can deadlock->flush only current cpu:
 	 */
+	/* (현재 cpu의?) 모든 tlb캐시를 비운다 */
 	__flush_tlb_all();
 }
 

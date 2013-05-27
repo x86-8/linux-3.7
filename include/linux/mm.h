@@ -784,6 +784,16 @@ void page_address_init(void);
  * address_space which maps the page from disk; whereas "page_mapped"
  * refers to user virtual address space into which the page is mapped.
  */
+/* 사용자 VMA에 있는 익명 페이지는 page->mapping이 단순히 자신의
+ * anon_vma를 가리킴. 그리고 MAPPING_ANON으로 구별.  MAPPING_KSM은
+ * MAPPING_ANON과 함께 쓰이지만, VM_MERGEABLE 영역 안에서는
+ * page->mapping은 자신의 anon_vma를 가리키지 않고, KSM과 연관된 머지된
+ * page를 가리킴.
+ *
+ * page_mapping: disk에(inode address space) 매핑된 page 를 가리킴.
+ *
+ * page_mapped: 사용자 VMA(virtual address space)에 매핑된 page를 가리킴.
+ */
 #define PAGE_MAPPING_ANON	1
 #define PAGE_MAPPING_KSM	2
 #define PAGE_MAPPING_FLAGS	(PAGE_MAPPING_ANON | PAGE_MAPPING_KSM)
@@ -818,6 +828,7 @@ struct address_space *page_file_mapping(struct page *page)
 	return page->mapping;
 }
 
+/* 익명 페이지 확인 */ᅠ
 static inline int PageAnon(struct page *page)
 {
 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;

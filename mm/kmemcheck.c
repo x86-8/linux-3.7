@@ -35,6 +35,8 @@ void kmemcheck_alloc_shadow(struct page *page, int order, gfp_t flags, int node)
 	kmemcheck_hide_pages(page, pages);
 }
 
+/* CONFIG_KMEMCHECK 활성화되어 있음.  KMEMCHECK 특성상 shadow page가
+ 있게 되는데, 그 부분을 해제해준다*/
 void kmemcheck_free_shadow(struct page *page, int order)
 {
 	struct page *shadow;

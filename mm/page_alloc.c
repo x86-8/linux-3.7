@@ -689,27 +689,41 @@ static void free_one_page(struct zone *zone, struct page *page, int order,
 	spin_unlock(&zone->lock);
 }
 
+/* page를 해제할 수 있는지 확인 */
+/* HELPME: order가 정확힌 뭘 의미하는 건가? 현재 파악 힘듬(lru등이
+ * 섞여있어서..) */
 static bool free_pages_prepare(struct page *page, unsigned int order)
 {
 	int i;
 	int bad = 0;
 
 	trace_mm_page_free(page, order);
+	/* debug하기 위한 feature */
+	/* HELPME: KMEMCHECK는 파악못했음 */
 	kmemcheck_free_shadow(page, order);
-
+	
+	/* 익명 페이지라면 현재 기리키고 있는 mapping 제거 */ᅠ
 	if (PageAnon(page))
 		page->mapping = NULL;
+	/* 해제할수 있는 page(s)인지 확인 */
 	for (i = 0; i < (1 << order); i++)
 		bad += free_pages_check(page + i);
+	/* 해제할 수 없는 page 있음 */
 	if (bad)
 		return false;
 
+	/* include/linux/page-flags.h 매크로, is_highmem() 부름. x86-64는
+	 * HIGHMEM을 안쓰므로 무조건 0반환해서 아랫 부분 실행됨 */
 	if (!PageHighMem(page)) {
+		 /* CONFIG_LOCKDEP 활성화시 사용됨 */
+		 /* HELPME: LOCKDEP은 파악못했음 */
 		debug_check_no_locks_freed(page_address(page),PAGE_SIZE<<order);
 		debug_check_no_obj_freed(page_address(page),
 					   PAGE_SIZE << order);
 	}
+	/* x86에서는 없음 */
 	arch_free_page(page, order);
+	/* page의 속성을 해제 */
 	kernel_map_pages(page, 1 << order, 0);
 
 	return true;
@@ -1299,6 +1313,8 @@ void free_hot_cold_page(struct page *page, int cold)
 	unsigned long flags;
 	int migratetype;
 
+	/* pages가 해제할수 있는지 확인(해제 할수 있으면, page 속성 제거 등의
+	 * 작업 수행) */
 	if (!free_pages_prepare(page, 0))
 		return;
 
@@ -5653,6 +5669,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 }
 
 /* Return a pointer to the bitmap storing bits affecting a block of pages */
+/* zone이 가지고 있는 pageblock_flags 반환 */
 static inline unsigned long *get_pageblock_bitmap(struct zone *zone,
 							unsigned long pfn)
 {
@@ -5666,6 +5683,7 @@ static inline unsigned long *get_pageblock_bitmap(struct zone *zone,
 static inline int pfn_to_bitidx(struct zone *zone, unsigned long pfn)
 {
 #ifdef CONFIG_SPARSEMEM
+	 /* pfn &= (1<<15)-1 */
 	pfn &= (PAGES_PER_SECTION-1);
 	return (pfn >> pageblock_order) * NR_PAGEBLOCK_BITS;
 #else
@@ -5692,6 +5710,7 @@ unsigned long get_pageblock_flags_group(struct page *page,
 
 	zone = page_zone(page);
 	pfn = page_to_pfn(page);
+    /* zone이 가지고 있는 pageblock_flags 반환 */
 	bitmap = get_pageblock_bitmap(zone, pfn);
 	bitidx = pfn_to_bitidx(zone, pfn);
 
