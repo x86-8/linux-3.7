@@ -77,8 +77,8 @@ extern int page_group_by_mobility_disabled;
 
 static inline int get_pageblock_migratetype(struct page *page)
 {
-	 /* page에서 PB_migrate ~ PB_migrate_end 만큼의 bit를 검사해서
-	  * flag로 변환 */
+	/* page에서 PB_migrate ~ PB_migrate_end 만큼의 bit를 검사해서
+	 * flag로 변환 */
 	return get_pageblock_flags_group(page, PB_migrate, PB_migrate_end);
 }
 

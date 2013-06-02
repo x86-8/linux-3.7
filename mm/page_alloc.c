@@ -1197,6 +1197,7 @@ static void drain_pages(unsigned int cpu)
 	unsigned long flags;
 	struct zone *zone;
 
+	/* zone들을 돌며, page가 있는 zone들만 수행 */
 	for_each_populated_zone(zone) {
 		struct per_cpu_pageset *pset;
 		struct per_cpu_pages *pcp;
@@ -1204,6 +1205,8 @@ static void drain_pages(unsigned int cpu)
 		local_irq_save(flags);
 		pset = per_cpu_ptr(zone->pageset, cpu);
 
+		/* HELPME: pcp(pageset의 정보)가 정확히 뭘 의미하는지
+		 * 모르겠음. */
 		pcp = &pset->pcp;
 		if (pcp->count) {
 			free_pcppages_bulk(zone, pcp->count, pcp);
@@ -1318,11 +1321,15 @@ void free_hot_cold_page(struct page *page, int cold)
 	if (!free_pages_prepare(page, 0))
 		return;
 
+	/* 얻어온 migratetype을 freepage 반영 */
+	/* HELPME: 아랫 부분(get_pageblock_migrate)부터 상당부분 훑어지나갈 예정. */
 	migratetype = get_pageblock_migratetype(page);
 	set_freepage_migratetype(page, migratetype);
 	local_irq_save(flags);
+	/* PGFREE의 vm_state count증가 */
 	__count_vm_event(PGFREE);
 
+	/* HELPME: migrate type은 아직 분석하지 않았음 */
 	/*
 	 * We only track unmovable, reclaimable and movable on pcp lists.
 	 * Free ISOLATE pages back to the allocator because they are being
@@ -1338,6 +1345,7 @@ void free_hot_cold_page(struct page *page, int cold)
 		migratetype = MIGRATE_MOVABLE;
 	}
 
+	/* HELPME: migrate type은 아직 분석하지 않았음 */
 	pcp = &this_cpu_ptr(zone->pageset)->pcp;
 	if (cold)
 		list_add_tail(&page->lru, &pcp->lists[migratetype]);
@@ -5197,6 +5205,7 @@ static int page_alloc_cpu_notify(struct notifier_block *self,
        /* CPU_DEAD/DEAD_FROZEN상태인 cpu의 페이지들을 메모리에서
         * 내린다 */
 		lru_add_drain_cpu(cpu);
+		/* HELPME: 정확히 무슨 역할 하는지 모르겠음 */
 		drain_pages(cpu);
 
 		/*
@@ -5205,6 +5214,8 @@ static int page_alloc_cpu_notify(struct notifier_block *self,
 		 * This artificially elevates the count of the current
 		 * processor.
 		 */
+        /* 해당(dead) cpu의 vm_event_states를 현재(운영중인) cpu의
+		 * vm_stat에 집어넣음 */
 		vm_events_fold_cpu(cpu);
 
 		/*
@@ -5214,6 +5225,7 @@ static int page_alloc_cpu_notify(struct notifier_block *self,
 		 * This is only okay since the processor is dead and cannot
 		 * race with what we are doing.
 		 */
+		/* HELPME: 분석안했음 */		
 		refresh_cpu_vm_stats(cpu);
 	}
 	return NOTIFY_OK;

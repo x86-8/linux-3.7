@@ -392,6 +392,8 @@ static int __init do_early_param(char *param, char *val, const char *unused)
 {
 	const struct obs_kernel_param *p;
 
+	/* early_param을 읽어서, 각 함수들을 실행한다. console와 earlycon은
+	 * 기본으로 되어 있는 것으로 보이고, console 변수는 earlycon으로 간주. */
 	for (p = __setup_start; p < __setup_end; p++) {
 		if ((p->early && parameq(param, p->str)) ||
 		    (strcmp(param, "console") == 0 &&
@@ -402,10 +404,13 @@ static int __init do_early_param(char *param, char *val, const char *unused)
 				       "Malformed early option '%s'\n", param);
 		}
 	}
+	
+	/* 아래 주석은 결과에 크게 상관없다는 의미인 듯 */
 	/* We accept everything at this stage. */
 	return 0;
 }
 
+/* early_options(cmd line)을 파싱 */
 void __init parse_early_options(char *cmdline)
 {
 	parse_args("early options", cmdline, NULL, 0, 0, 0, do_early_param);
@@ -421,6 +426,7 @@ void __init parse_early_param(void)
 		return;
 
 	/* All fall through to do_early_param. */
+	/* early_options 파싱 및 처리 */
 	strlcpy(tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
 	parse_early_options(tmp_cmdline);
 	done = 1;
@@ -539,6 +545,11 @@ asmlinkage void __init start_kernel(void)
   /* 각 node에 대한 모든 zone를 만든다. list로 결정짓고, 각 zone으로
    * 부터 memory 총 량등을 구한다 */
 	build_all_zonelists(NULL, NULL);
+	/* 이 부분은 hot-pulged cpu가 dead, dead_frozen되었을 때, 연결된
+	 * page를 초기화하는 부분 */
+	/* HELPME: 실질적으로 시스템 부팅이 완전히 끝난 상태에서 수행되기
+	 * 때문에, 현재로서 이해하기가 벅찬 감이 있음.(LRU, page,
+	 * zonelist등의 연계) */
 	page_alloc_init();
 
 	printk(KERN_NOTICE "Kernel command line: %s\n", boot_command_line);

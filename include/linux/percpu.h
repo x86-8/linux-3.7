@@ -229,6 +229,7 @@ extern void __bad_size_call_parameter(void);
 	pdcrb_ret__;							\
 })
 
+/* percpu variable 크기 별로 호출 함수(stem)를 다르게 부른다. */
 #define __pcpu_size_call(stem, variable, ...)				\
 do {									\
 	__verify_pcpu_ptr(&(variable));					\

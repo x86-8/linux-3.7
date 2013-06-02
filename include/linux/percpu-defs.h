@@ -23,6 +23,7 @@
  * @ptr.  This is to be used in percpu accessors to verify that the
  * input parameter is a percpu pointer.
  */
+/* verify할때 typeof를 통해 __percpu를 가지고 있는지, 확인 하는 것으로 보임. */
 #define __verify_pcpu_ptr(ptr)	do {					\
 	const void __percpu *__vpp_verify = (typeof(ptr))NULL;		\
 	(void)__vpp_verify;						\

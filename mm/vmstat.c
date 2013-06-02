@@ -59,11 +59,14 @@ EXPORT_SYMBOL_GPL(all_vm_events);
  * This is adding to the events on one processor
  * but keeps the global counts constant.
  */
+/* 해당(dead) cpu의 vm_event_states를 자기의 cpu에 합산함 */
 void vm_events_fold_cpu(int cpu)
 {
+	 /* 해당(dead) cpu의 vm_event_states를 가져옴  */
 	struct vm_event_state *fold_state = &per_cpu(vm_event_states, cpu);
 	int i;
 
+	/* 현재 cpu에 가져온 vm_event_states를 합산 */
 	for (i = 0; i < NR_VM_EVENT_ITEMS; i++) {
 		count_vm_events(i, fold_state->event[i]);
 		fold_state->event[i] = 0;

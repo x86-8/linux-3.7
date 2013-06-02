@@ -27,3 +27,4 @@ Study history (날짜:인원:내용)
 101. 2013/05/11:02:*init/main.c* - page_alloc_init - page_alloc_cpu_notify
 102. 2013/05/18:02:*init/main.c* - page_alloc_init - page_alloc_cpu_notify - lru_add_drain_cpu - __pagevec_lru_add - pagevec_lru_move_fn - release_pages - free_hot_cold_page_list - free_hot_cold_page - free_pages_prepare
 103. 2013/05/25:02:*init/main.c* - page_alloc_init - page_alloc_cpu_notify - lru_add_drain_cpu - __pagevec_lru_add - pagevec_lru_move_fn - release_pages - free_hot_cold_page_list - free_hot_cold_page - get_pageblock_migratetype - get_pageblock_flags_group - pfn_to_bitidx
+104. 2013/06/01:03:*init/main.c* - parse_args

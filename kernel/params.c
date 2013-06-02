@@ -67,6 +67,8 @@ static char dash2underscore(char c)
 	return c;
 }
 
+/* 문자 1개씩 비교하는데, dash를 underscore문자로 변환해서 비교한다 */
+/* HELPME: 왜 dash를 underscore로 비교할까? */
 bool parameqn(const char *a, const char *b, size_t n)
 {
 	size_t i;
@@ -97,12 +99,15 @@ static int parse_one(char *param,
 	int err;
 
 	/* Find parameter */
+	/* param옵션 하나를 가지고, kernel이 해석할 수 있는 param이면, 해당
+	 * param에 값을 반영한다 */
 	for (i = 0; i < num_params; i++) {
 		if (parameq(param, params[i].name)) {
 			if (params[i].level < min_level
 			    || params[i].level > max_level)
 				return 0;
 			/* No one handled NULL, so do it here. */
+			/* param값이 없거나, bool, bint함수이면 에러 */
 			if (!val && params[i].ops->set != param_set_bool
 			    && params[i].ops->set != param_set_bint)
 				return -EINVAL;
@@ -115,6 +120,7 @@ static int parse_one(char *param,
 		}
 	}
 
+	/* 처리 할 수가 없는 경우, unknown 함수 호출 */
 	if (handle_unknown) {
 		pr_debug("doing %s: %s='%s'\n", doing, param, val);
 		return handle_unknown(param, val, doing);
@@ -126,6 +132,8 @@ static int parse_one(char *param,
 
 /* You can use " around spaces, but can't escape ". */
 /* Hyphens and underscores equivalent in parameter names. */
+/* 파라미터 하나를 읽고, param에 parameter이름, val에 parameter값을
+ * 넣는다 */
 static char *next_arg(char *args, char **param, char **val)
 {
 	unsigned int i, equals = 0;
@@ -197,8 +205,10 @@ int parse_args(const char *doing,
 		int ret;
 		int irq_was_disabled;
 
+		/* param, val에 parameter 하나를 가져옴 */
 		args = next_arg(args, &param, &val);
 		irq_was_disabled = irqs_disabled();
+		/* 얻어온 param과 val값을 반영 */
 		ret = parse_one(param, val, doing, params, num,
 				min_level, max_level, unknown);
 		if (irq_was_disabled && !irqs_disabled())

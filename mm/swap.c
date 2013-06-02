@@ -319,7 +319,9 @@ static void pagevec_lru_move_fn(struct pagevec *pvec,
 	/* zone 값이 있다는 것은 lock이 걸려있음을 의미 */
 	if (zone)
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
+	/* HELPME: release_pages 상당 부분 분석 안됨 */
 	release_pages(pvec->pages, pvec->nr, pvec->cold);
+	/* pvec 갯수 초기화 */
 	pagevec_reinit(pvec);
 }
 
@@ -600,7 +602,8 @@ void lru_add_drain_cpu(int cpu)
 		if (pagevec_count(pvec))
 			__pagevec_lru_add(pvec, lru);
 	}
-
+	
+	/* HELPME: LRU 부분은 분석이 아직 안됐음. */
 	pvec = &per_cpu(lru_rotate_pvecs, cpu);
 	if (pagevec_count(pvec)) {
 		unsigned long flags;
@@ -611,10 +614,12 @@ void lru_add_drain_cpu(int cpu)
 		local_irq_restore(flags);
 	}
 
+	/* HELPME: LRU 부분은 분석이 아직 안됐음. */
 	pvec = &per_cpu(lru_deactivate_pvecs, cpu);
 	if (pagevec_count(pvec))
 		pagevec_lru_move_fn(pvec, lru_deactivate_fn, NULL);
 
+	/* HELPME: LRU 부분은 분석이 아직 안됐음. */
 	activate_page_drain(cpu);
 }
 
