@@ -29,6 +29,7 @@ void jump_label_unlock(void)
 	mutex_unlock(&jump_label_mutex);
 }
 
+/* jump_label 엔트리 비교(key 값으로 비교) */
 static int jump_label_cmp(const void *a, const void *b)
 {
 	const struct jump_entry *jea = a;
@@ -43,6 +44,7 @@ static int jump_label_cmp(const void *a, const void *b)
 	return 0;
 }
 
+/* jump_label 엔트리 정렬 */
 static void
 jump_label_sort_entries(struct jump_entry *start, struct jump_entry *stop)
 {
@@ -150,6 +152,7 @@ static int __jump_label_text_reserved(struct jump_entry *iter_start,
  * running code can override this to make the non-live update case
  * cheaper.
  */
+/* jump_label 엔트리에 type 대로 적용 */
 void __weak __init_or_module arch_jump_label_transform_static(struct jump_entry *entry,
 					    enum jump_label_type type)
 {
@@ -173,6 +176,7 @@ static void __jump_label_update(struct static_key *key,
 	}
 }
 
+/* key로부터 jump_label_type 얻어옴. */
 static enum jump_label_type jump_label_type(struct static_key *key)
 {
 	bool true_branch = jump_label_get_branch_default(key);
@@ -184,6 +188,7 @@ static enum jump_label_type jump_label_type(struct static_key *key)
 	return JUMP_LABEL_DISABLE;
 }
 
+/* jump_label 초기화 */
 void __init jump_label_init(void)
 {
 	struct jump_entry *iter_start = __start___jump_table;
@@ -191,13 +196,17 @@ void __init jump_label_init(void)
 	struct static_key *key = NULL;
 	struct jump_entry *iter;
 
+	/* mutex 락 */
 	jump_label_lock();
+
+	/* label 엔트리 정렬. key(static_key) 주소 오름차순 정렬 */
 	jump_label_sort_entries(iter_start, iter_stop);
 
 	for (iter = iter_start; iter < iter_stop; iter++) {
 		struct static_key *iterk;
 
 		iterk = (struct static_key *)(unsigned long)iter->key;
+		/* jump_label을 적용 */
 		arch_jump_label_transform_static(iter, jump_label_type(iterk));
 		if (iterk == key)
 			continue;
@@ -211,6 +220,7 @@ void __init jump_label_init(void)
 		key->next = NULL;
 #endif
 	}
+	/* mutex 언락 */
 	jump_label_unlock();
 }
 

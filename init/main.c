@@ -553,11 +553,15 @@ asmlinkage void __init start_kernel(void)
 	page_alloc_init();
 
 	printk(KERN_NOTICE "Kernel command line: %s\n", boot_command_line);
+	/* early param 분석.  */
 	parse_early_param();
+	/* 각 module 별 선언된 parameter들을 분석. built-in module을 의미.
+	 * module내에 module_param()으로 parameter 선언.*/
 	parse_args("Booting kernel", static_command_line, __start___param,
 		   __stop___param - __start___param,
 		   -1, -1, &unknown_bootoption);
 
+	/* jump_label 초기화 */
 	jump_label_init();
 
 	/*

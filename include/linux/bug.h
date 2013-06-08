@@ -28,6 +28,10 @@ struct pt_regs;
    result (of value 0 and type size_t), so the expression can be used
    e.g. in a structure initializer (or where-ever else comma expressions
    aren't permitted). */
+/* compile-time에 조건식 e를 확인하기 위함. compile-time에 확인하기
+ * 위해서는 e는 상수값이어야 하며, int:-!!(e)는 -1과 -0 두 가지의
+ * 값으로 나오는데, -1은 comile error가 나게 되고, -0은
+ * BUILD_BUG_ON_ZERO(e) 의 크기가 0으로 나온다 */
 #define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
 #define BUILD_BUG_ON_NULL(e) ((void *)sizeof(struct { int:-!!(e); }))
 

@@ -100,6 +100,7 @@ struct kparam_array
  *	bool: a bool, values 0/1, y/n, Y/N.
  *	invbool: the above, only sense-reversed (N = true).
  */
+/* built-in module param 선언시 사용 됨. */
 #define module_param(name, type, perm)				\
 	module_param_named(name, name, type, perm)
 
@@ -175,6 +176,7 @@ struct kparam_array
 
 /* This is the fundamental function for registering boot/module
    parameters. */
+/* kernel_param 을  선언. __param 섹션에 모이게 된다. */
 #define __module_param_call(prefix, name, ops, arg, perm, level)	\
 	/* Default value instead of permissions? */			\
 	static int __param_perm_check_##name __attribute__((unused)) =	\
@@ -336,6 +338,10 @@ static inline void destroy_params(const struct kernel_param *params,
 /* All the helper functions */
 /* The macros to do compile-time type checking stolen from Jakub
    Jelinek, who IIRC came up with this idea for the 2.4 module init code. */
+/* complie시 type check을 할 수 있는 방법.
+ * module_param 선언시에 각 변수의 type 검사를 위해  사용된다.
+ * 선언시에 사용된 type을 리턴값으로 사용하여, 변수를 반환했을 때,
+ * 맞지 않으므로, compile-time error가 발생하는 trick이다 */
 #define __param_check(name, p, type) \
 	static inline type *__check_##name(void) { return(p); }
 
