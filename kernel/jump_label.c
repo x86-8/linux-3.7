@@ -182,6 +182,8 @@ static enum jump_label_type jump_label_type(struct static_key *key)
 	bool true_branch = jump_label_get_branch_default(key);
 	bool state = static_key_enabled(key);
 
+	/* HELPME: 이 부분에서는 true_branch나 state 둘 중 하나만 true일 경우에만,
+	 ENABLE로 나타내고 있는데, 둘다 true_branch, state가 true일수 없는 건가? */
 	if ((!true_branch && state) || (true_branch && !state))
 		return JUMP_LABEL_ENABLE;
 

@@ -89,8 +89,12 @@ inline struct jump_entry *jump_label_get_entries(struct static_key *key)
 						& ~JUMP_LABEL_TRUE_BRANCH);
 }
 
+/* static_key로부터 jump_label의 true branch를 얻어옴 */
 static inline bool jump_label_get_branch_default(struct static_key *key)
 {
+	 /* lsb가 1이면 true. 실제로는 8byte align되어 있기 때문에 lsb를
+		true/false 용도로 쓰고, entries값을 주소로 읽어들일 때는 lsb 를
+		무시하도록 처리되어 있다 */
 	if ((unsigned long)key->entries & JUMP_LABEL_TRUE_BRANCH)
 		return true;
 	return false;
@@ -203,6 +207,7 @@ jump_label_rate_limit(struct static_key_deferred *key,
 #define STATIC_KEY_INIT STATIC_KEY_INIT_FALSE
 #define jump_label_enabled static_key_enabled
 
+/* key의 enabled 상태를 얻어옴 */
 static inline bool static_key_enabled(struct static_key *key)
 {
 	return (atomic_read(&key->enabled) > 0);
