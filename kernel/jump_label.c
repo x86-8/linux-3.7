@@ -217,6 +217,9 @@ void __init jump_label_init(void)
 		/*
 		 * Set key->entries to iter, but preserve JUMP_LABEL_TRUE_BRANCH.
 		 */
+		/* key->entries는 각 JUMP_TABLE을 가리키도록 설정. 하위
+		 * 1bit(true branch 상태)를 살리기 위해서 일부러 += 연산을
+		 * 사용. */
 		*((unsigned long *)&key->entries) += (unsigned long)iter;
 #ifdef CONFIG_MODULES
 		key->next = NULL;

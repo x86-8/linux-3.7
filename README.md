@@ -30,3 +30,4 @@ Study history (날짜:인원:내용)
 104. 2013/06/01:03:*init/main.c* - parse_args
 105. 2013/06/08:02:*init/main.c* - jump_label_init - jump_label_type
 106. 2013/06/15:02:*init/main.c* - jump_label_init - jump_label_type | jump_label 추측하기 힘드네 T_T
+107. 2013/06/22:02:*init/main.c* - jump_label_init | 토론 하고 있음
