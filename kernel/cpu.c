@@ -63,8 +63,12 @@ static struct {
 	.refcount = 0,
 };
 
+/* HELPME: hotplug 관련해서 무슨 뜻이지? */
 void get_online_cpus(void)
 {
+	 /* HELPME: VOLUNTARY가 제 쪽(hwiorn)에는 설정이 안되어
+	  * 있습니다. 이상한건, 내부적으로 resched를 호출 해서 schedule을
+	  * 합니다.아직 sched가 안되어 있습니다  */
 	might_sleep();
 	if (cpu_hotplug.active_writer == current)
 		return;

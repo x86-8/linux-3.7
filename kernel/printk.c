@@ -249,6 +249,7 @@ static u32 clear_idx;
 #else
 #define LOG_ALIGN __alignof__(struct log)
 #endif
+/* config에 선언된 default 크기=>17, 128K */
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
@@ -702,6 +703,11 @@ static int __init log_buf_len_setup(char *str)
 }
 early_param("log_buf_len", log_buf_len_setup);
 
+/* log_buf를 할당한다. log_buf할당이 끝나면 new_log_buf_len이 0으로
+ * 바뀌어 log_buf할당을 할 수 없음. x86에서는 이미 setup_arch에서
+ * early=1인 상태로 호출이 되었으므로, 아마 early가 0일때 호출이 안될
+ * 것으로 추측됨.
+ */
 void __init setup_log_buf(int early)
 {
 	unsigned long flags;
@@ -719,9 +725,11 @@ void __init setup_log_buf(int early)
 			return;
 		new_log_buf = __va(mem);
 	} else {
+		 /* log_buf할당 */
 		new_log_buf = alloc_bootmem_nopanic(new_log_buf_len);
 	}
 
+	/* log_buf 할당을 못하면 */
 	if (unlikely(!new_log_buf)) {
 		pr_err("log_buf_len: %ld bytes not available\n",
 			new_log_buf_len);
@@ -732,6 +740,7 @@ void __init setup_log_buf(int early)
 	log_buf_len = new_log_buf_len;
 	log_buf = new_log_buf;
 	new_log_buf_len = 0;
+	/* __log_buf(early)를 할당받은 log_buf에 복사 */
 	free = __LOG_BUF_LEN - log_next_idx;
 	memcpy(log_buf, __log_buf, __LOG_BUF_LEN);
 	raw_spin_unlock_irqrestore(&logbuf_lock, flags);

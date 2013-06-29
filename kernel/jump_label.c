@@ -152,7 +152,6 @@ static int __jump_label_text_reserved(struct jump_entry *iter_start,
  * running code can override this to make the non-live update case
  * cheaper.
  */
-/* jump_label 엔트리에 type 대로 적용 */
 void __weak __init_or_module arch_jump_label_transform_static(struct jump_entry *entry,
 					    enum jump_label_type type)
 {
@@ -222,6 +221,8 @@ void __init jump_label_init(void)
 		 * 사용. */
 		*((unsigned long *)&key->entries) += (unsigned long)iter;
 #ifdef CONFIG_MODULES
+		/* HELPME: NULL을 대입하는 이유는 module이 아니면,
+		   list연결을 할 수 없기 때문? */
 		key->next = NULL;
 #endif
 	}

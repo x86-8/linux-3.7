@@ -535,11 +535,13 @@ void __init alternative_instructions(void)
  * instructions. And on the local CPU you need to be protected again NMI or MCE
  * handlers seeing an inconsistent instruction while you patch.
  */
+/* x86에서는 이 함수를 호출한다. boot-time에 호출해서, instruction을 변경. */
 void *__init_or_module text_poke_early(void *addr, const void *opcode,
 					      size_t len)
 {
 	unsigned long flags;
 	local_irq_save(flags);
+	/* 주소에 opcode를 직접 써넣는다 */
 	memcpy(addr, opcode, len);
 	sync_core();
 	local_irq_restore(flags);

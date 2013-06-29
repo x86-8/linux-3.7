@@ -5589,6 +5589,8 @@ __setup("hashdist=", set_hashdist);
  *   quantity of entries
  * - limit is the number of hash buckets, not the total allocation size
  */
+/* hash테이블의 가지고 있는 것은 2의 제곱수만큼 가짐. limit는 hash의
+ * 갯수지, 총 할당크기가 아님. */
 void *__init alloc_large_system_hash(const char *tablename,
 				     unsigned long bucketsize,
 				     unsigned long numentries,
@@ -5599,6 +5601,12 @@ void *__init alloc_large_system_hash(const char *tablename,
 				     unsigned long low_limit,
 				     unsigned long high_limit)
 {
+/* tablename => "PID", 
+   bucketsize => sizeof(*pid_hash),
+   numentries => 0, scale => 18, flags => HASH_EARLY | HASH_SMALL,
+   _hash_shift => &pidhash_shift,
+   _hash_mask => NULL,
+   low_limit => 0, high_limit => 4096  로 호출했음 */
 	unsigned long long max = high_limit;
 	unsigned long log2qty, size;
 	void *table = NULL;
@@ -5606,6 +5614,8 @@ void *__init alloc_large_system_hash(const char *tablename,
 	/* allow the kernel cmdline to have a say */
 	if (!numentries) {
 		/* round applicable memory size up to nearest megabyte */
+		 /* numentries에 nr_kernel_pages를 반올림해서 align한다 */
+		 /* HELPME: 왜 megabyte 라고 할까? */
 		numentries = nr_kernel_pages;
 		numentries += (1UL << (20 - PAGE_SHIFT)) - 1;
 		numentries >>= 20 - PAGE_SHIFT;

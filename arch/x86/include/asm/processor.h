@@ -669,17 +669,24 @@ static inline void cpu_relax(void)
 }
 
 /* Stop speculative execution and prefetching of modified code. */
+/* "실행예측"과 "수정된 코드의 prefetching" 중단 */
+/* HELPME: 성능상의 문제는 없나? */
 static inline void sync_core(void)
 {
 	int tmp;
 
 #if defined(CONFIG_M386) || defined(CONFIG_M486)
+	/* boot_cpu_data는 x86에서 arch/x86/kernel/setup.c */
 	if (boot_cpu_data.x86 < 5)
 		/* There is no speculative execution.
 		 * jmp is a barrier to prefetching. */
 		asm volatile("jmp 1f\n1:\n" ::: "memory");
 	else
 #endif
+		 /* cpuid, iret, rsm은 x86에서 "실행예측"을 중지시켜, in-order
+		  * 방식처럼 동작하게 만든다 */
+		 /* HELPME: 아예 중지시키는 것인가, 다시 speculative
+		  * execution을 시킨다는 말인가? */
 		/* cpuid is a barrier to speculative execution.
 		 * Prefetched instructions are automatically
 		 * invalidated when modified. */

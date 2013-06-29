@@ -505,45 +505,31 @@ asmlinkage void __init start_kernel(void)
 	page_address_init();
 	printk(KERN_NOTICE "%s", linux_banner);
 
-        /**
-         * 아키텍처 종속적인 초기화
-         */
+	/* 아키텍처 종속적인 초기화 */
 	setup_arch(&command_line);
 
-        /**
-         * init_task의 owner에 init_mm을 설정해서 서로를 가르키게 한다. 왜?
-         */
+	/* init_task의 owner에 init_mm을 설정해서 서로를 가르키게 한다. 왜? */
 	mm_init_owner(&init_mm, &init_task);
 
-        /**
-         * HELPME: CPU_OFFSTACK_MASK=y하면 크래시가 발생해서 초기화 순서를 수정한다??
-         */
+	/* HELPME: CPU_OFFSTACK_MASK=y하면 크래시가 발생해서 초기화 순서를 수정한다?? */
 	mm_init_cpumask(&init_mm);
 
-        /**
-         * 커맨드 라인을 두곳에 저장하고 하나는 절대 변형시키지 않는다.
-         */
+	/* 커맨드 라인을 두곳에 저장하고 하나는 절대 변형시키지 않는다. */
 	setup_command_line(command_line);
 
-        /**
-         * nr_cpu_ids를 설정한다. 어떤 아키텍처는 이미 셋팅 되어 있을 수 도 있겠다. x86-64 numa는
-         */
+	/* nr_cpu_ids를 설정한다. 어떤 아키텍처는 이미 셋팅 되어 있을 수 도 있겠다. x86-64 numa는 */
 	setup_nr_cpu_ids();
 
-        /**
-         * per_cpu 영역을 설정한다. first chunk를 할당을 한 뒤, 기존에
-         * 있던(early) pcpu영역을 실제 pcpu로 이전한다.
-         */
+	/* per_cpu 영역을 설정한다. first chunk를 할당을 한 뒤, 기존에 */
+	/* 있던(early) pcpu영역을 실제 pcpu로 이전한다. */
 	setup_per_cpu_areas();
   
-  /**
-   * native_smp_prepare_boot_cpu() 를 호출해서, BSProcessor의 segment를
-   * 설정
-   */
+	/* native_smp_prepare_boot_cpu() 를 호출해서, BSProcessor의 segment를 */
+	/* 설정 */
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
 
-  /* 각 node에 대한 모든 zone를 만든다. list로 결정짓고, 각 zone으로
-   * 부터 memory 총 량등을 구한다 */
+	/* 각 node에 대한 모든 zone를 만든다. list로 결정짓고, 각 zone으로
+	 * 부터 memory 총 량등을 구한다 */
 	build_all_zonelists(NULL, NULL);
 	/* 이 부분은 hot-pulged cpu가 dead, dead_frozen되었을 때, 연결된
 	 * page를 초기화하는 부분 */
@@ -568,6 +554,7 @@ asmlinkage void __init start_kernel(void)
 	 * These use large bootmem allocations and must precede
 	 * kmem_cache_init()
 	 */
+	/* early가 아닌 log buffer를 할당 */
 	setup_log_buf(0);
 	pidhash_init();
 	vfs_caches_init_early();
