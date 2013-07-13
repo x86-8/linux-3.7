@@ -106,6 +106,7 @@ search_extable(const struct exception_table_entry *first,
  * the exception tables of modules that get loaded.
  *
  */
+/* 커널 exception table과 모듈의 exception table 정렬 시에 사용  */
 static int cmp_ex(const void *a, const void *b)
 {
 	const struct exception_table_entry *x = a, *y = b;
@@ -117,9 +118,11 @@ static int cmp_ex(const void *a, const void *b)
 	 *
 	 * This compare is only valid after normalization.
 	 */
+	/* 커널 symbol이 닿을수 있는 주소 영역은 2GB 이하라는 군... */
 	return x->insn - y->insn;
 }
 
+/* 커널 exception table 정렬 */
 void sort_extable(struct exception_table_entry *start,
 		  struct exception_table_entry *finish)
 {
@@ -127,18 +130,23 @@ void sort_extable(struct exception_table_entry *start,
 	int i;
 
 	/* Convert all entries to being relative to the start of the section */
+	/* 모든 entries를 normalize 한다. */
+	/* 순차로 만드는 것은 insn이 같은 entry가 존재할 수 있기 때문. */
 	i = 0;
 	for (p = start; p < finish; p++) {
 		p->insn += i;
 		i += 4;
+		/* fixup은 정렬 과정에 안 쓰니 필요 없을 텐데... */
 		p->fixup += i;
 		i += 4;
 	}
 
+	/* exception table을 실제로 정렬 */
 	sort(start, finish - start, sizeof(struct exception_table_entry),
 	     cmp_ex, NULL);
 
 	/* Denormalize all entries */
+	/* 모든 entries를 denormalize 한다 */
 	i = 0;
 	for (p = start; p < finish; p++) {
 		p->insn -= i;

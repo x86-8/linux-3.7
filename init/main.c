@@ -556,9 +556,14 @@ asmlinkage void __init start_kernel(void)
 	 */
 	/* early가 아닌 log buffer를 할당 */
 	setup_log_buf(0);
+	/* pidhash 초기화 */
 	pidhash_init();
+	/* dcache, inode hashtable을 할당하고 초기화한다. NUMA64 일때는
+	 * vmalloc 영역이 잡힐 때까지 할당되지 않는다*/
 	vfs_caches_init_early();
+	/* kernel exception table 정렬 */
 	sort_main_extable();
+	/* trap 초기화 */
 	trap_init();
 	mm_init();
 

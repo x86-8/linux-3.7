@@ -5570,6 +5570,8 @@ int percpu_pagelist_fraction_sysctl_handler(ctl_table *table, int write,
 	return 0;
 }
 
+/* hashes are distributed across NUMA nodes 를 의미한다. NUMA64 일때
+ * 활성화 된다. */
 int hashdist = HASHDIST_DEFAULT;
 
 #ifdef CONFIG_NUMA
@@ -5604,7 +5606,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 /* tablename => "PID", 
    bucketsize => sizeof(*pid_hash),
    numentries => 0, scale => 18, flags => HASH_EARLY | HASH_SMALL,
-   _hash_shift => &pidhash_shift,
+   _hash_shift => &pidhash_shift => pidhash_shift값은 4,
    _hash_mask => NULL,
    low_limit => 0, high_limit => 4096  로 호출했음 */
 	unsigned long long max = high_limit;
@@ -5614,48 +5616,69 @@ void *__init alloc_large_system_hash(const char *tablename,
 	/* allow the kernel cmdline to have a say */
 	if (!numentries) {
 		/* round applicable memory size up to nearest megabyte */
-		 /* numentries에 nr_kernel_pages를 반올림해서 align한다 */
-		 /* HELPME: 왜 megabyte 라고 할까? */
+		 /* numentries에 nr_kernel_pages를 반올림해서 mega단위로
+			align한다 numentries는 PAGE단위이기 때문에 20-PAGE_SHIFT는
+			mega를 의미하며, mega단위로 align한다.
+		 */
 		numentries = nr_kernel_pages;
 		numentries += (1UL << (20 - PAGE_SHIFT)) - 1;
 		numentries >>= 20 - PAGE_SHIFT;
 		numentries <<= 20 - PAGE_SHIFT;
 
 		/* limit to 1 bucket per 2^scale bytes of low memory */
+		/* 1 bucket의 크기는 256K만큼(2^18) 제한함. numentries를 bucket 크기만큼 align.
+		 * 이미 numentries는 mega단위로 align되어 있기 때문에, 다시 bucket 크기로 맞춘다.
+		 */
 		if (scale > PAGE_SHIFT)
 			numentries >>= (scale - PAGE_SHIFT);
 		else
 			numentries <<= (PAGE_SHIFT - scale);
 
+		/* HASH_SMALL과 HASH_EARLY는 한 짝이다. */
 		/* Make sure we've got at least a 0-order allocation.. */
 		if (unlikely(flags & HASH_SMALL)) {
 			/* Makes no sense without HASH_EARLY */
 			WARN_ON(!(flags & HASH_EARLY));
+			/* 4(*_hash_shift)만큼 align했을 때 값이 없으면 에러. */
 			if (!(numentries >> *_hash_shift)) {
 				numentries = 1UL << *_hash_shift;
 				BUG_ON(!numentries);
 			}
+			/* 그럴 일은 별로 없겠지만, bucket의 총 크기(numentries * bucketsize)가 1 PAGE에 들어가면,
+			 * PAGE_SIZE에 꽉 채울수 있도록 numentries값을 조정(조정 후는 항상 이전 값보다 크다)
+			 */
 		} else if (unlikely((numentries * bucketsize) < PAGE_SIZE))
 			numentries = PAGE_SIZE / bucketsize;
 	}
+	/* numentries를 2의 제곱수만큼 만든다 */
 	numentries = roundup_pow_of_two(numentries);
 
+	/* max가 0이면 값을 (최대메모리*0.0625) 만큼 사용한다 */
 	/* limit allocation size to 1/16 total memory by default */
 	if (max == 0) {
 		max = ((unsigned long long)nr_all_pages << PAGE_SHIFT) >> 4;
 		do_div(max, bucketsize);
 	}
+	/* max와 1G보다 작은 값을 선택. EARLY일 경우 4096이므로 1 PAGE(4kb)가 된다.*/
 	max = min(max, 0x80000000ULL);
 
+	/* 최소 한계보다 작거나 크다면 numentries 재 조정 */
 	if (numentries < low_limit)
 		numentries = low_limit;
 	if (numentries > max)
 		numentries = max;
 
+	/* numentries를 2의 제곱수 값 역계산 */
 	log2qty = ilog2(numentries);
 
+	/* table이 할당되지 않고, 테이블 크기(bucket 총 크기)가 PAGE
+	 * 크기보다 클때, log2qty를 줄여나가면서 table할당을 시도한다. */
 	do {
+		 /* bucket 총 크기 계산 */
 		size = bucketsize << log2qty;
+		/* EARLY flags가 있다면 bootmem에서 할당하고, hashdist가 있다면
+		 * virtual malloc에서 할당, 그래도 없으면 alloc_pages_exact로
+		 * 할당. hashdist는 NUMA_64일 경우 1로 설정된다. */
 		if (flags & HASH_EARLY)
 			table = alloc_bootmem_nopanic(size);
 		else if (hashdist)
@@ -5666,6 +5689,9 @@ void *__init alloc_large_system_hash(const char *tablename,
 			 * some pages at the end of hash table which
 			 * alloc_pages_exact() automatically does
 			 */
+			 /* bucket사이즈가 2의 제곱수가 아닐 때, 남는 부분을
+			  * 사용하지 않기 위해, alloc_page_exact 함수로
+			  * 할당한다 */
 			if (get_order(size) < MAX_ORDER) {
 				table = alloc_pages_exact(size, GFP_ATOMIC);
 				kmemleak_alloc(table, size, 1, GFP_ATOMIC);
@@ -5673,6 +5699,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 		}
 	} while (!table && size > PAGE_SIZE && --log2qty);
 
+	/* table가 할당 되지 않았다면 panic!!! */
 	if (!table)
 		panic("Failed to allocate %s hash table\n", tablename);
 
@@ -5682,11 +5709,13 @@ void *__init alloc_large_system_hash(const char *tablename,
 	       ilog2(size) - PAGE_SHIFT,
 	       size);
 
+	/* _hash_shift에 quantity값 ==> numentries 갯수(2의 제곱수 값) 지정 */
 	if (_hash_shift)
 		*_hash_shift = log2qty;
 	if (_hash_mask)
 		*_hash_mask = (1 << log2qty) - 1;
 
+	/* 생성한 table 반환 */
 	return table;
 }
 

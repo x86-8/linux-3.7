@@ -51,7 +51,7 @@ static inline struct desc_struct *get_cpu_gdt_table(unsigned int cpu)
 }
 
 #ifdef CONFIG_X86_64
-
+/* 인터럽트 gate_desc를 만든다. */
 static inline void pack_gate(gate_desc *gate, unsigned type, unsigned long func,
 			     unsigned dpl, unsigned ist, unsigned seg)
 {
@@ -103,6 +103,7 @@ static inline int desc_empty(const void *ptr)
 
 #define write_ldt_entry(dt, entry, desc)	native_write_ldt_entry(dt, entry, desc)
 #define write_gdt_entry(dt, entry, desc, type)	native_write_gdt_entry(dt, entry, desc, type)
+/* idt 테이블의 entry인덱스에 g를 복사 */
 #define write_idt_entry(dt, entry, g)		native_write_idt_entry(dt, entry, g)
 
 static inline void paravirt_alloc_ldt(struct desc_struct *ldt, unsigned entries)

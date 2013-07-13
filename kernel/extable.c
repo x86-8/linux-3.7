@@ -39,8 +39,10 @@ extern struct exception_table_entry __stop___ex_table[];
 u32 __initdata main_extable_sort_needed = 1;
 
 /* Sort the kernel's built-in exception table */
+/* 커널 exception table 정렬 */
 void __init sort_main_extable(void)
 {
+	 /* 처음에는 정렬 */
 	if (main_extable_sort_needed)
 		sort_extable(__start___ex_table, __stop___ex_table);
 	else

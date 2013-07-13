@@ -3092,9 +3092,12 @@ static void __init dcache_init_early(void)
 	/* If hashes are distributed across NUMA nodes, defer
 	 * hash allocation until vmalloc space is available.
 	 */
+	/* NUMA64라면 hashdist는 활성화 되고, hash 할당은 vmalloc 영역이
+	 * 사용가능해질 때까지 미뤄진다.  */
 	if (hashdist)
 		return;
 
+	/* dentry_hashtable 할당 */
 	dentry_hashtable =
 		alloc_large_system_hash("Dentry cache",
 					sizeof(struct hlist_bl_head),
@@ -3106,6 +3109,7 @@ static void __init dcache_init_early(void)
 					0,
 					0);
 
+	/* dentry_hashtable 초기화 */
 	for (loop = 0; loop < (1U << d_hash_shift); loop++)
 		INIT_HLIST_BL_HEAD(dentry_hashtable + loop);
 }
@@ -3147,6 +3151,8 @@ EXPORT_SYMBOL(names_cachep);
 
 EXPORT_SYMBOL(d_genocide);
 
+/* dcache, inode hashtable을 할당하고 초기화한다. 단, NUMA64 일때는
+ * vmalloc 영역이 잡힐 때까지 할당 되지 않는다 */
 void __init vfs_caches_init_early(void)
 {
 	dcache_init_early();

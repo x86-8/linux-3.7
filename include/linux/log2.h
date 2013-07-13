@@ -82,6 +82,7 @@ unsigned long __rounddown_pow_of_two(unsigned long n)
  *
  * selects the appropriately-sized optimised version depending on sizeof(n)
  */
+/* 32bit/64bit 부호없는 정수의 log2(n) */
 #define ilog2(n)				\
 (						\
 	__builtin_constant_p(n) ? (		\

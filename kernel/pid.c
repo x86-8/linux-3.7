@@ -547,12 +547,16 @@ void __init pidhash_init(void)
 {
 	unsigned int i, pidhash_size;
 
+	/* pid_hash에 생성한 hash table 할당 */
 	pid_hash = alloc_large_system_hash("PID", sizeof(*pid_hash), 0, 18,
 					   HASH_EARLY | HASH_SMALL,
 					   &pidhash_shift, NULL,
 					   0, 4096);
+	/* pidhash_shift만큼 pidhash_size로 지정. size는 여기서 크기가
+	 * 아니라, 갯수를 의미하는 것으로 보인다 */
 	pidhash_size = 1U << pidhash_shift;
 
+	/* pidhash list 초기화 */
 	for (i = 0; i < pidhash_size; i++)
 		INIT_HLIST_HEAD(&pid_hash[i]);
 }

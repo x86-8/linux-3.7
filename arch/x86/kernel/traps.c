@@ -691,13 +691,14 @@ dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code)
 /* Set of traps needed for early debugging. */
 void __init early_trap_init(void)
 {
-	set_intr_gate_ist(X86_TRAP_DB, &debug, DEBUG_STACK);
+	set_intr_gate_ist(X86_TRAP_DB, &debug, DEBUG_STACK); /* => do_debug(...) */
 	/* int3 can be called from all */
-	set_system_intr_gate_ist(X86_TRAP_BP, &int3, DEBUG_STACK);
-	set_intr_gate(X86_TRAP_PF, &page_fault);
+	set_system_intr_gate_ist(X86_TRAP_BP, &int3, DEBUG_STACK); /* => do_int3(...) */
+	set_intr_gate(X86_TRAP_PF, &page_fault);				   /* => do_page_fault(...) in fault.c */
 	load_idt(&idt_descr);
 }
 
+/* trap 초기화 */
 void __init trap_init(void)
 {
 	int i;
@@ -709,38 +710,44 @@ void __init trap_init(void)
 		EISA_bus = 1;
 	early_iounmap(p, 4);
 #endif
-
-	set_intr_gate(X86_TRAP_DE, &divide_error);
-	set_intr_gate_ist(X86_TRAP_NMI, &nmi, NMI_STACK);
+	/* PAGE FAULT의 함수는 do_page_fault로 fault.c에 정의되어 있고,
+	 * setup_arch() 진행시에 이미 설정되었다. */
+	
+	 /* trap 함수의 기본 형태는 "do_##name" 이다 */
+	set_intr_gate(X86_TRAP_DE, &divide_error); /* => DO_ERROR_INFO(...) */
+	/* NMI는 인터럽트 금지시 예외적으로 금지되지 않는 인터럽트. */
+	set_intr_gate_ist(X86_TRAP_NMI, &nmi, NMI_STACK); /* => ENTRY(nmi) in entry_64.S */
 	/* int4 can be called from all */
-	set_system_intr_gate(X86_TRAP_OF, &overflow);
-	set_intr_gate(X86_TRAP_BR, &bounds);
-	set_intr_gate(X86_TRAP_UD, &invalid_op);
-	set_intr_gate(X86_TRAP_NM, &device_not_available);
+	set_system_intr_gate(X86_TRAP_OF, &overflow); /* => DO_ERROR(...) */
+	set_intr_gate(X86_TRAP_BR, &bounds); /* => DO_ERROR(...) */
+	set_intr_gate(X86_TRAP_UD, &invalid_op); /* => DO_ERROR_INFO(...) */
+	set_intr_gate(X86_TRAP_NM, &device_not_available); /* => do_device_not_available(...) */
 #ifdef CONFIG_X86_32
 	set_task_gate(X86_TRAP_DF, GDT_ENTRY_DOUBLEFAULT_TSS);
 #else
-	set_intr_gate_ist(X86_TRAP_DF, &double_fault, DOUBLEFAULT_STACK);
+	set_intr_gate_ist(X86_TRAP_DF, &double_fault, DOUBLEFAULT_STACK); /* => do_double_fault(...) */
 #endif
-	set_intr_gate(X86_TRAP_OLD_MF, &coprocessor_segment_overrun);
-	set_intr_gate(X86_TRAP_TS, &invalid_TSS);
-	set_intr_gate(X86_TRAP_NP, &segment_not_present);
-	set_intr_gate_ist(X86_TRAP_SS, &stack_segment, STACKFAULT_STACK);
-	set_intr_gate(X86_TRAP_GP, &general_protection);
-	set_intr_gate(X86_TRAP_SPURIOUS, &spurious_interrupt_bug);
-	set_intr_gate(X86_TRAP_MF, &coprocessor_error);
-	set_intr_gate(X86_TRAP_AC, &alignment_check);
+	set_intr_gate(X86_TRAP_OLD_MF, &coprocessor_segment_overrun); /* => DO_ERROR(...) */
+	set_intr_gate(X86_TRAP_TS, &invalid_TSS); /* => DO_ERROR(...) */
+	set_intr_gate(X86_TRAP_NP, &segment_not_present); /* => DO_ERROR(...) */
+	set_intr_gate_ist(X86_TRAP_SS, &stack_segment, STACKFAULT_STACK); /* => DO_ERROR(...) */
+	set_intr_gate(X86_TRAP_GP, &general_protection);  /* => do_general_protection(...) */
+	set_intr_gate(X86_TRAP_SPURIOUS, &spurious_interrupt_bug); /* => do_spurious_interrupt_bug(...) */
+	set_intr_gate(X86_TRAP_MF, &coprocessor_error); /* => do_coprocessor_error(...) */
+	set_intr_gate(X86_TRAP_AC, &alignment_check);  /* -> DO_ERROR_INFO(...) */
 #ifdef CONFIG_X86_MCE
-	set_intr_gate_ist(X86_TRAP_MC, &machine_check, MCE_STACK);
+	set_intr_gate_ist(X86_TRAP_MC, &machine_check, MCE_STACK); /* => *machine_check_vector => do_machine_check(...) */
 #endif
-	set_intr_gate(X86_TRAP_XF, &simd_coprocessor_error);
+	set_intr_gate(X86_TRAP_XF, &simd_coprocessor_error);  /* => do_simd_coprocessor_error(...) */
 
+	/* 32까지 interrupt를 사용한다고 등록 */
 	/* Reserve all the builtin and the syscall vector: */
 	for (i = 0; i < FIRST_EXTERNAL_VECTOR; i++)
 		set_bit(i, used_vectors);
 
+	/* 64비트에서 IA32_EMULATION 활성화 되어 있음 */
 #ifdef CONFIG_IA32_EMULATION
-	set_system_intr_gate(IA32_SYSCALL_VECTOR, ia32_syscall);
+	set_system_intr_gate(IA32_SYSCALL_VECTOR, ia32_syscall); /* => do_ia32_syscall(...) in ia32entry.S */
 	set_bit(IA32_SYSCALL_VECTOR, used_vectors);
 #endif
 
@@ -754,11 +761,11 @@ void __init trap_init(void)
 	 */
 	cpu_init();
 
-	x86_init.irqs.trap_init();
+	x86_init.irqs.trap_init(); 	/* => x86_init_noop(...) */
 
 #ifdef CONFIG_X86_64
 	memcpy(&nmi_idt_table, &idt_table, IDT_ENTRIES * 16);
-	set_nmi_gate(X86_TRAP_DB, &debug);
-	set_nmi_gate(X86_TRAP_BP, &int3);
+	set_nmi_gate(X86_TRAP_DB, &debug) ; /* => do_debug(...) */
+	set_nmi_gate(X86_TRAP_BP, &int3); /* => do_int3(...) */
 #endif
 }

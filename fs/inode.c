@@ -1749,9 +1749,12 @@ void __init inode_init_early(void)
 	/* If hashes are distributed across NUMA nodes, defer
 	 * hash allocation until vmalloc space is available.
 	 */
+	/* NUMA64라면 hashdist는 활성화 되고, hash 할당은 vmalloc 영역이
+	 * 사용가능해질 때까지 미뤄진다.  */
 	if (hashdist)
 		return;
 
+    /* inode_hashtable 할당 */
 	inode_hashtable =
 		alloc_large_system_hash("Inode-cache",
 					sizeof(struct hlist_head),
@@ -1762,7 +1765,8 @@ void __init inode_init_early(void)
 					&i_hash_mask,
 					0,
 					0);
-
+	
+    /* inode_hashtable 할당 */
 	for (loop = 0; loop < (1U << i_hash_shift); loop++)
 		INIT_HLIST_HEAD(&inode_hashtable[loop]);
 }
