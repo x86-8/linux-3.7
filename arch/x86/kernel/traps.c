@@ -82,6 +82,7 @@ gate_desc idt_table[NR_VECTORS] __page_aligned_data = { { { { 0, 0 } } }, };
 DECLARE_BITMAP(used_vectors, NR_VECTORS);
 EXPORT_SYMBOL_GPL(used_vectors);
 
+/* X86_EFLAGS_IF가 있다면 irq 활성화 */
 static inline void conditional_sti(struct pt_regs *regs)
 {
 	if (regs->flags & X86_EFLAGS_IF)
@@ -128,13 +129,17 @@ do_trap_no_signal(struct task_struct *tsk, int trapnr, char *str,
 #endif
 	if (!user_mode(regs)) {
 		if (!fixup_exception(regs)) {
+			 /* 커널 모드이면서, exception을 고치지 못하면 해당 task
+			  * die!! signr로는 내부에서SIGSEV가 주어짐. */
 			tsk->thread.error_code = error_code;
 			tsk->thread.trap_nr = trapnr;
 			die(str, regs, error_code);
 		}
+		/* trap 처리 완료 */
 		return 0;
 	}
-
+	
+	/* trap 처리 못함 */
 	return -1;
 }
 
@@ -145,6 +150,7 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 	struct task_struct *tsk = current;
 
 
+	/* signal없이 처리가 가능 한 경우(kernel 모드에서 exception 수정 가능할때?) */
 	if (!do_trap_no_signal(tsk, trapnr, str, regs, error_code))
 		return;
 	/*
@@ -160,6 +166,10 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 	tsk->thread.trap_nr = trapnr;
 
 #ifdef CONFIG_X86_64
+	/*
+	  1. unhandled_signal을 보여주고자 하면서,
+	  2. signal을 처리할 수 없으면서(init task이거나, sig가 SIG_IGN/DFL인 경우)
+	  3. printk_ratelimti 값이 있는 경우 */
 	if (show_unhandled_signals && unhandled_signal(tsk, signr) &&
 	    printk_ratelimit()) {
 		pr_info("%s[%d] trap %s ip:%lx sp:%lx error:%lx",
@@ -170,9 +180,13 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 	}
 #endif
 
+	/* signal info가 있는 경우, signal no와 해당 signal의 subtype이 들어 있음 */
 	if (info)
 		force_sig_info(signr, info, tsk);
 	else
+		 /* force_sig_info(signr, SEND_SIG_PRIV, tsk)로 호출 */
+		 /* HELPME: SEND_SIG_PRIV는 ((struct siginfo *) 1)인데, 왜
+		  * 1인가? */
 		force_sig(signr, tsk);
 }
 
@@ -715,7 +729,7 @@ void __init trap_init(void)
 	
 	 /* trap 함수의 기본 형태는 "do_##name" 이다 */
 	set_intr_gate(X86_TRAP_DE, &divide_error); /* => DO_ERROR_INFO(...) */
-	/* NMI는 인터럽트 금지시 예외적으로 금지되지 않는 인터럽트. */
+	/* NMI는 "인터럽트 금지시 예외적으로 금지되지 않는 인터럽트" */
 	set_intr_gate_ist(X86_TRAP_NMI, &nmi, NMI_STACK); /* => ENTRY(nmi) in entry_64.S */
 	/* int4 can be called from all */
 	set_system_intr_gate(X86_TRAP_OF, &overflow); /* => DO_ERROR(...) */

@@ -1240,13 +1240,20 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 	action = &t->sighand->action[sig-1];
 	ignored = action->sa.sa_handler == SIG_IGN;
 	blocked = sigismember(&t->blocked, sig);
+	/* sig로부터 얻은 task의 signal handler가 task에서 SIG_IGN
+	 * 설정됐거나, sig가 blocked(signal set)에 등록되어 있는 경우 */
 	if (blocked || ignored) {
+		 /* signal handler를 default handler로 교체 */
 		action->sa.sa_handler = SIG_DFL;
 		if (blocked) {
+			 /* blocked에서 sig를 해제한다 */
 			sigdelset(&t->blocked, sig);
 			recalc_sigpending_and_wake(t);
 		}
 	}
+	/* HELPME: SIGNAL_UNKILLABLE 제거가 SIGSEGV의 재귀적 발생을
+	 * 방지한다고 한다. signal에 대한 unkillable인가 task에 대한
+	 * unkillable일까? */
 	if (action->sa.sa_handler == SIG_DFL)
 		t->signal->flags &= ~SIGNAL_UNKILLABLE;
 	ret = specific_send_sig_info(sig, info, t);

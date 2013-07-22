@@ -74,6 +74,7 @@ static int notifier_chain_unregister(struct notifier_block **nl,
  *	@returns:	notifier_call_chain returns the value returned by the
  *			last notifier function called.
  */
+/* event로 등록된 nootifiel_block을 차례대로 호출 */
 static int __kprobes notifier_call_chain(struct notifier_block **nl,
 					unsigned long val, void *v,
 					int nr_to_call,	int *nr_calls)
@@ -83,6 +84,8 @@ static int __kprobes notifier_call_chain(struct notifier_block **nl,
 
 	nb = rcu_dereference_raw(*nl);
 
+	/* nr_to_call은 등록된 함수의 몇 번째까지 알려야 하는지.. -1일 경우
+	 * 끝까지 하게 된다. */
 	while (nb && nr_to_call) {
 		next_nb = rcu_dereference_raw(nb->next);
 
@@ -93,8 +96,10 @@ static int __kprobes notifier_call_chain(struct notifier_block **nl,
 			continue;
 		}
 #endif
+		/* notifier 함수 호출 */
 		ret = nb->notifier_call(nb, val, v);
 
+		/* 몇 번 호출했는가, NULL이 대부분인듯  */
 		if (nr_calls)
 			(*nr_calls)++;
 
@@ -188,6 +193,7 @@ int __kprobes __atomic_notifier_call_chain(struct atomic_notifier_head *nh,
 }
 EXPORT_SYMBOL_GPL(__atomic_notifier_call_chain);
 
+/* notifier_call_chain을 atomic하게 호출 */
 int __kprobes atomic_notifier_call_chain(struct atomic_notifier_head *nh,
 		unsigned long val, void *v)
 {

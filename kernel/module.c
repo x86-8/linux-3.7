@@ -3506,12 +3506,14 @@ module_init(proc_modules_init);
 #endif
 
 /* Given an address, look for it in the module exception tables. */
+/* module의 exception 테이블에서 검색 */
 const struct exception_table_entry *search_module_extables(unsigned long addr)
 {
 	const struct exception_table_entry *e = NULL;
 	struct module *mod;
 
 	preempt_disable();
+	/* 모듈 하나하나씩 순회하면서 search_extable로 찾는다 */
 	list_for_each_entry_rcu(mod, &modules, list) {
 		if (mod->num_exentries == 0)
 			continue;

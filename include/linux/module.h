@@ -513,7 +513,7 @@ extern void print_modules(void);
 
 /* Given an address, look for it in the exception tables. */
 static inline const struct exception_table_entry *
-search_module_extables(unsigned long addr)
+bsearch_module_extables(unsigned long addr)
 {
 	return NULL;
 }

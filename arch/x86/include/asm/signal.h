@@ -210,11 +210,12 @@ static inline void __const_sigaddset(sigset_t *set, int _sig)
 	set->sig[sig / _NSIG_BPW] |= 1 << (sig % _NSIG_BPW);
 }
 
+/* signal_set에서 특정 bit(_sig)를 직접 해제한다. 상수냐 변수냐에 따라
+ * 실행 함수가 다름 */
 #define sigdelset(set, sig)		    \
 	(__builtin_constant_p(sig)	    \
 	 ? __const_sigdelset((set), (sig))  \
 	 : __gen_sigdelset((set), (sig)))
-
 
 static inline void __gen_sigdelset(sigset_t *set, int _sig)
 {

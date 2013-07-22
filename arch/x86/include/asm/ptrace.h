@@ -161,6 +161,10 @@ static inline unsigned long regs_return_value(struct pt_regs *regs)
  * one comparison.  Many places in the kernel can bypass this full check
  * if they have already ruled out V8086 mode, so user_mode(regs) can be used.
  */
+/* CS하위 2bit는 current privilege level라서 얻을 수 있다. V8086은 특권
+ * 레벨 3에서 동작하기 때문에, CS reg에 접근할 수 없다고 함. 하지만
+ * 커널은 V8086을 이미 배제하고 작성한다고 가정하기 때문에, user_mode
+ * 함수를 쓴다고 한다 */
 static inline int user_mode(struct pt_regs *regs)
 {
 #ifdef CONFIG_X86_32

@@ -5570,7 +5570,7 @@ int percpu_pagelist_fraction_sysctl_handler(ctl_table *table, int write,
 	return 0;
 }
 
-/* hashes are distributed across NUMA nodes 를 의미한다. NUMA64 일때
+/* HASHes are DISTributed across numa nodes 를 의미한다. NUMA64 일때
  * 활성화 된다. */
 int hashdist = HASHDIST_DEFAULT;
 
