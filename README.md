@@ -33,4 +33,5 @@ Study history (날짜:인원:내용)
 107. 2013/06/22:02:*init/main.c* - jump_label_init | 토론 하고 있음
 108. 2013/06/29:02:*init/main.c* - pdihash_init - alloc_large_system_hash| jump_label_init() 종료, 함수는 쉬우나 내용이 무지어려움(다시해야할듯)
 109. 2013/07/13:02:*init/main.c* - trap_init | exception 함수 부분 어셈 분석 필요
-110. 2013/07/20:02:*init/main.c* - trap_init 
++110. 2013/07/20:02:*init/main.c* - trap_init - DO_ERROR_INFO - do_trap - force_sig_info
++111. 2013/07/27:02:*init/main.c* - trap_init | 소득없음
