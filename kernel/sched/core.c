@@ -1407,6 +1407,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 
 	smp_wmb();
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	/* task의 state가 원하는 state와 다르면 */
 	if (!(p->state & state))
 		goto out;
 
@@ -1501,8 +1502,10 @@ int wake_up_process(struct task_struct *p)
 }
 EXPORT_SYMBOL(wake_up_process);
 
+/* task를 원하는 state로 깨운다? */
 int wake_up_state(struct task_struct *p, unsigned int state)
 {
+	 /* HELPME: 내부적으로 schedule 관련 내용이 들어가 있어서, 분석하기 힘듬 */
 	return try_to_wake_up(p, state, 0);
 }
 

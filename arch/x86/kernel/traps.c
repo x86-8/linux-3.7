@@ -169,7 +169,7 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 	/*
 	  1. unhandled_signal을 보여주고자 하면서,
 	  2. signal을 처리할 수 없으면서(init task이거나, sig가 SIG_IGN/DFL인 경우)
-	  3. printk_ratelimti 값이 있는 경우 */
+	  3. printk_ratelimit 값이 있는 경우 */
 	if (show_unhandled_signals && unhandled_signal(tsk, signr) &&
 	    printk_ratelimit()) {
 		pr_info("%s[%d] trap %s ip:%lx sp:%lx error:%lx",
@@ -180,7 +180,9 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 	}
 #endif
 
-	/* signal info가 있는 경우, signal no와 해당 signal의 subtype이 들어 있음 */
+	/* force_sig, force_sig_info는 signal을 무시못하도록 강제로
+	 * 처리하게 하는 함수라고 한다. */
+	/* signal info(signal number와 해당 signal의 subtype이 들어 있음)가 있는 경우, 호출 */
 	if (info)
 		force_sig_info(signr, info, tsk);
 	else

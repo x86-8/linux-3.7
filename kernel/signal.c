@@ -118,6 +118,7 @@ static inline int has_pending_signals(sigset_t *signal, sigset_t *blocked)
 		ready |= signal->sig[0] &~ blocked->sig[0];
 		break;
 
+		/* 64bit에서는 8byte로 signal set(64개)을 모두 나타낼 수 있다. */
 	case 1: ready  = signal->sig[0] &~ blocked->sig[0];
 	}
 	return ready !=	0;
@@ -127,9 +128,13 @@ static inline int has_pending_signals(sigset_t *signal, sigset_t *blocked)
 
 static int recalc_sigpending_tsk(struct task_struct *t)
 {
+	 /*  HELPME: JOBCTL 관련 부분은 허태준씨가 추가한 것으로
+	  *  보임. 그런데 무슨말인지 모르겠음. PENDING은 signale이 blokced
+	  *  안되어 있으면서, pending 상태로 있을 때를 말한다 */
 	if ((t->jobctl & JOBCTL_PENDING_MASK) ||
 	    PENDING(&t->pending, &t->blocked) ||
 	    PENDING(&t->signal->shared_pending, &t->blocked)) {
+		 /* HELPME: task_thread_info는 어떤 것이며, TIF_SIGPENDING은 뭘까? */
 		set_tsk_thread_flag(t, TIF_SIGPENDING);
 		return 1;
 	}
@@ -145,8 +150,11 @@ static int recalc_sigpending_tsk(struct task_struct *t)
  * After recalculating TIF_SIGPENDING, we need to make sure the task wakes up.
  * This is superfluous when called on current, the wakeup is a harmless no-op.
  */
+/* signal pendign을 다시 계산(?)하고, signal을 처리하기 위해 task를
+ * 깨운다 */
 void recalc_sigpending_and_wake(struct task_struct *t)
 {
+	 /* pending상태인 signal이 있으면, 해당 task를 wakeup 한다 */
 	if (recalc_sigpending_tsk(t))
 		signal_wake_up(t, 0);
 }
@@ -683,6 +691,7 @@ void signal_wake_up(struct task_struct *t, int resume)
 {
 	unsigned int mask;
 
+	/* task의 thread flag를 TIF_SIGPENDING으로 바꾼다 */
 	set_tsk_thread_flag(t, TIF_SIGPENDING);
 
 	/*
@@ -692,9 +701,12 @@ void signal_wake_up(struct task_struct *t, int resume)
 	 * By using wake_up_state, we ensure the process will wake up and
 	 * handle its death signal.
 	 */
+	
 	mask = TASK_INTERRUPTIBLE;
 	if (resume)
 		mask |= TASK_WAKEKILL;
+	/* state상태로 wakeup을 못하면, kick해버린다는 뜻인 듯? */
+	/* HELPME: scheduling 관련 내용이 있어서, 분석 못함. */
 	if (!wake_up_state(t, mask))
 		kick_process(t);
 }
@@ -1146,6 +1158,7 @@ ret:
 	return ret;
 }
 
+/* signal을 보낸다 */
 static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			int group)
 {
@@ -1201,6 +1214,8 @@ __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 static int
 specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 {
+	 /* group을 0으로 하여 signal을 보낸다 */
+	 /* HELPME: 이 부분은 scheduling과 관련이 있는 듯... */
 	return send_signal(sig, info, t, 0);
 }
 
@@ -1248,14 +1263,23 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 		if (blocked) {
 			 /* blocked에서 sig를 해제한다 */
 			sigdelset(&t->blocked, sig);
+			/* signal이 blocked되어 있다면, task를 sigpending으로
+			 * 바꾸고, 강제로 wakeup한다 */
 			recalc_sigpending_and_wake(t);
 		}
 	}
 	/* HELPME: SIGNAL_UNKILLABLE 제거가 SIGSEGV의 재귀적 발생을
 	 * 방지한다고 한다. signal에 대한 unkillable인가 task에 대한
 	 * unkillable일까? */
+	/* UNKILLABLE를 제거해버리면, DEFAULT sig handler일 경우, 해당
+	 * handler에서 terminate 하므로, 같은 signal이 걸려도 이미
+	 * terminate되어서, blocked이 되지않아 계속 signal이 쌓이지
+	 * 않는다는 말인듯? */
 	if (action->sa.sa_handler == SIG_DFL)
 		t->signal->flags &= ~SIGNAL_UNKILLABLE;
+	/* signal을 보낸다. */
+	/* HELPME: 내부적으로 단순히 send_signal 호출만 할 뿐인데? 왜
+	 * specific으로 표현했는지 모르겠음 */
 	ret = specific_send_sig_info(sig, info, t);
 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
 

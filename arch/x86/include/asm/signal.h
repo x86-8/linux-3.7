@@ -15,14 +15,18 @@ struct siginfo;
 /* Most things should be clean enough to redefine this at will, if care
    is taken to make libc match.  */
 
+/* Number of SIGnal 인듯? */
 #define _NSIG		64
 
+/* Number of SIGnal Byte Per Word 인듯? */
 #ifdef __i386__
 # define _NSIG_BPW	32
 #else
 # define _NSIG_BPW	64
 #endif
 
+/* WORD는 일반적으로 arch의 기본 단위지만, x86 에서는 예외적으로 word가
+ * 16으로 굳어져있다. 이 헤더파일에서는 WORD의 원래 개념으로 나타낸 듯.. */
 #define _NSIG_WORDS	(_NSIG / _NSIG_BPW)
 
 typedef unsigned long old_sigset_t;		/* at least 32 bits */
