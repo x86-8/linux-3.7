@@ -192,6 +192,11 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 		force_sig(signr, tsk);
 }
 
+/* DO_ERROR와 DO_ERROR_INFO의 차이는 siginfo가 있으냐 없느냐의 차이고,
+ * force_sig_info(..)를 호출 하느냐, 안하느냐의 차이가 있다. */
+/* HELPME: 그렇게 보자면, trap에 따라 ERROR나 ERROR_INFO를 딱히
+ * 구분지을 필요가 있는가? */
+/* HELPME: force_sig_info에 info가 있을 때와 없을 때의 차이? */
 #define DO_ERROR(trapnr, signr, str, name)				\
 dotraplinkage void do_##name(struct pt_regs *regs, long error_code)	\
 {									\

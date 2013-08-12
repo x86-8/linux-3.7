@@ -36,3 +36,4 @@ Study history (날짜:인원:내용)
 110. 2013/07/20:02:*init/main.c* - trap_init - DO_ERROR_INFO - do_trap - force_sig_info
 111. 2013/07/27:02:*init/main.c* - trap_init | 소득없음
 112. 2013/08/03:03:*init/main.c* - trap_init
+113. 2013/08/10:02:*init/main.c* - trap_init
