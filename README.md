@@ -6,6 +6,7 @@ Linux kernel Study Group(iamroot x86-8 beginner)
 * 커널분석 = [Linux 3.2](https://github.com/x86-8/linux-3.2.git) setup_arch() 이후부터 v3.7로 변경
 * 커널분석 = [Linux 3.7](https://github.com/x86-8/linux-3.7.git)
 * 문서고 = [x86-8-docs](https://github.com/x86-8/x86-8-docs.git)
+* 참여자 = @jminrang, @Florentius, @hijnn, @hwiorn  / @minq
 
 Study history (날짜:인원:내용)
 ==============================
@@ -37,3 +38,4 @@ Study history (날짜:인원:내용)
 111. 2013/07/27:02:*init/main.c* - trap_init | 소득없음
 112. 2013/08/03:03:*init/main.c* - trap_init
 113. 2013/08/10:02:*init/main.c* - trap_init
+113. 2013/08/17:01:*init/main.c* - trap_init | @jminrang님 혼자서 복습 중 T_T
