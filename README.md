@@ -40,4 +40,5 @@ Study history (날짜:인원:내용)
 113. 2013/08/10:02:*init/main.c* - trap_init
 114. 2013/08/17:01:*init/main.c* -x trap_init | @jminrang님 혼자서 복습 중 T_T
 115. 2013/08/24:02:*init/main.c* -x trap_init
-116. 2013/08/31:01:*init/main.c* -x trap_init
+116. 2013/08/31:01:*init/main.c* -x trap_init - 복습중
+117. 2013/09/14:02:*init/main.c* -x trap_init - 토론
