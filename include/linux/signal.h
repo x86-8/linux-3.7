@@ -379,6 +379,9 @@ int unhandled_signal(struct task_struct *tsk, int sig);
 	(((t)->sighand->action[(signr)-1].sa.sa_handler != SIG_DFL) &&	\
 	 ((t)->sighand->action[(signr)-1].sa.sa_handler != SIG_IGN))
 
+/* signal(== signr)이 무시할수 있는 signal이 아니면서, task의 signal
+   handler가 SIG_DFL일 경우엔 signal은 fatal로 결정할 수 있다는 의미인
+   듯.(즉, task를 죽일 수 있다는 의미) */
 #define sig_fatal(t, signr) \
 	(!siginmask(signr, SIG_KERNEL_IGNORE_MASK|SIG_KERNEL_STOP_MASK) && \
 	 (t)->sighand->action[(signr)-1].sa.sa_handler == SIG_DFL)

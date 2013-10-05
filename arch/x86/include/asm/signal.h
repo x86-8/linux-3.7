@@ -198,6 +198,8 @@ typedef struct sigaltstack {
 
 #define __HAVE_ARCH_SIG_BITOPS
 
+/* signal set에서 특정 bit(_sig)를 설정한다. 상수냐 변수냐에 따라
+ * 실행 함수가 다름 */
 #define sigaddset(set,sig)		    \
 	(__builtin_constant_p(sig)	    \
 	 ? __const_sigaddset((set), (sig))  \

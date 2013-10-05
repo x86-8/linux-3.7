@@ -1093,6 +1093,11 @@ void kick_process(struct task_struct *p)
 
 	preempt_disable();
 	cpu = task_cpu(p);
+	/* task의 cpu가 현재 동작 중인 cpu가 아닌데, 현재(아마도 다른)
+	   cpu에 해당 task가 돌아가고 있다고 하는 경우. task의 cpu에
+	   reschedule를 시키도록 한다. 그런데 x86의 cpu reschedule엔
+	   cpu_is_offline(없을 때)일 경우, reschedule을 하지 않는다.
+	*/
 	if ((cpu != smp_processor_id()) && task_curr(p))
 		smp_send_reschedule(cpu);
 	preempt_enable();
@@ -1407,7 +1412,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 
 	smp_wmb();
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
-	/* task의 state가 원하는 state와 다르면 */
+	/* task의 state가 원하는 state와 다르면, 처리하지 않는다 */
 	if (!(p->state & state))
 		goto out;
 
@@ -1502,10 +1507,12 @@ int wake_up_process(struct task_struct *p)
 }
 EXPORT_SYMBOL(wake_up_process);
 
-/* task를 원하는 state로 깨운다? */
+/* 해당 task의 상태가 원하는 상태(state)일 때, 깨운다 */
 int wake_up_state(struct task_struct *p, unsigned int state)
 {
-	 /* HELPME: 내부적으로 schedule 관련 내용이 들어가 있어서, 분석하기 힘듬 */
+	/* task의 상태가 원하는 state가 아닐 수 있으므로, 깨우기를
+	   시도한다는 뜻 */
+	/* HELPME: 스케쥴링과 관련이 있어서, 분석하기 힘듦 */
 	return try_to_wake_up(p, state, 0);
 }
 

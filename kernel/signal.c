@@ -375,11 +375,14 @@ __sigqueue_alloc(int sig, struct task_struct *t, gfp_t flags, int override_rlimi
 	atomic_inc(&user->sigpending);
 	rcu_read_unlock();
 
+	/* rlimit을 허용하고 있으며, user의 sigpending의 counter가 task
+	   rlimit허용치 이하일때 queue를 할당 */
 	if (override_rlimit ||
 	    atomic_read(&user->sigpending) <=
 			task_rlimit(t, RLIMIT_SIGPENDING)) {
 		q = kmem_cache_alloc(sigqueue_cachep, flags);
 	} else {
+		/* 버리게 된 signal을 출력한다 */
 		print_dropped_signal(sig);
 	}
 
@@ -701,12 +704,21 @@ void signal_wake_up(struct task_struct *t, int resume)
 	 * By using wake_up_state, we ensure the process will wake up and
 	 * handle its death signal.
 	 */
-	
+	/* SIGKILL의 경우는 정지된 프로세스를 죽이기 위해서는 깨워야 하는데,
+	   race codition문제 때문에, task의 state를 참고 할 수 없음(실행중인 다른
+	   프로세서가 정지상태가 될 수 있음). 그래서, wake_up_state를 참고해서
+	   깨어난뒤, death signal(=KILL)을 처리할 것이라고 함 */
 	mask = TASK_INTERRUPTIBLE;
+	/* TASK_WAKEKILL은 프로세스를 wake했을 때, fatal signal을 처리하는 flag.
+	   
+	   Ref)http://www.ibm.com/developerworks/linux/library/l-task-killable/ */
 	if (resume)
 		mask |= TASK_WAKEKILL;
-	/* state상태로 wakeup을 못하면, kick해버린다는 뜻인 듯? */
-	/* HELPME: scheduling 관련 내용이 있어서, 분석 못함. */
+
+	/* task가 특정 상태(TASK)에 있다면, 깨우고, 깨어나지 않는다면,
+	 kick(강제로 깨우기)한다.  kick_process는 kernel mode로 들어간다는
+	 의미인데, task가 wake-up을 못하니, kernel mode로 들어가서, task가
+	 돌아갔던 cpu에 reschedule 메시지를 보낸다 */
 	if (!wake_up_state(t, mask))
 		kick_process(t);
 }
@@ -949,6 +961,8 @@ static inline int wants_signal(int sig, struct task_struct *p)
 		return 1;
 	if (task_is_stopped_or_traced(p))
 		return 0;
+	/* 현재 task가 cpu에서 처리되고 있거나 pending상태가 아니면
+	   signal 처리하기 적합하다고 평가하는 듯 */
 	return task_curr(p) || !signal_pending(p);
 }
 
@@ -963,6 +977,8 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 	 * If the main thread wants the signal, it gets first crack.
 	 * Probably the least surprising to the average bear.
 	 */
+	/* signal을 가져갈(처리할) 하나의 therad를 찾아야 하는데, 가장
+	   먼저 main thread가 처리할 수 있는지 확인한다. */
 	if (wants_signal(sig, p))
 		t = p;
 	else if (!group || thread_group_empty(p))
@@ -970,11 +986,14 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 		 * There is just one thread and it does not need to be woken.
 		 * It will dequeue unblocked signals before it runs again.
 		 */
+		/* main thread가 처리할 수 없는데... 현재 그룹에 아무것도
+		   없다면, 아무것도 처리할 수 없다 */
 		return;
 	else {
 		/*
 		 * Otherwise try to find a suitable thread.
 		 */
+		/* signal을 처리할 수 있는 적합한 therad를 찾는다 */
 		t = signal->curr_target;
 		while (!wants_signal(sig, t)) {
 			t = next_thread(t);
@@ -993,13 +1012,21 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 	 * Found a killable thread.  If the signal will be fatal,
 	 * then start taking the whole group down immediately.
 	 */
-	if (sig_fatal(p, sig) &&
+	if (/* signal이 task를 죽일 수 있는 경우 */
+	    sig_fatal(p, sig) && 
+	    /* 죽일 수 있거나, 죽는 중이 아닌 경우 */
 	    !(signal->flags & (SIGNAL_UNKILLABLE | SIGNAL_GROUP_EXIT)) &&
+	    /* signal이 블락되지 않은 경우. */
+	    /* HELPME: 그런데 real_blocked는 정확히 언제 사용되는지 모르겠음 */
 	    !sigismember(&t->real_blocked, sig) &&
+	    /* signal이 KILL이거나 ptrace가 아닌 경우 */
+	    /* HELPME: ptrace가 정확히 뭐하는 녀석이지? */
 	    (sig == SIGKILL || !t->ptrace)) {
 		/*
 		 * This signal will be fatal to the whole group.
 		 */
+		/* signal이 coredump를 만드는 type이 아닐 때만, task
+		 group을 죽인다.  (e.g. SIGKILL) */
 		if (!sig_kernel_coredump(sig)) {
 			/*
 			 * Start a group exit and wake everybody up.
@@ -1007,12 +1034,17 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 			 * running and doing things after a slower
 			 * thread has the fatal signal pending.
 			 */
+			/* 모든 group을 죽일 것이므로 signal에
+			   GROUP_EXIT을 설정하고, group의 모든 task를
+			   깨워 KILL signal을 전달한다 */
 			signal->flags = SIGNAL_GROUP_EXIT;
 			signal->group_exit_code = sig;
 			signal->group_stop_count = 0;
 			t = p;
 			do {
+				/* HELPME: jobctl을 모르겠음 */
 				task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
+				/* pending set에 등록 */
 				sigaddset(&t->pending.signal, SIGKILL);
 				signal_wake_up(t, 1);
 			} while_each_thread(p, t);
@@ -1024,21 +1056,27 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 	 * The signal is already in the shared-pending queue.
 	 * Tell the chosen thread to wake up and dequeue it.
 	 */
+	/* signal은 이미 공유 pending queue에 등록되어 있으니, 선택된 thread를
+	   깨운다고 한다. 참고로 group있을 때, 공유 pending queue에 등록되는데, 위
+	   조건에서 group이 없으면, 나가게 되어 있다. */
 	signal_wake_up(t, sig == SIGKILL);
 	return;
 }
 
 static inline int legacy_queue(struct sigpending *signals, int sig)
 {
+	/* 시그널이 RT가 아니고, signal set에 등록된 경우 */
 	return (sig < SIGRTMIN) && sigismember(&signals->signal, sig);
 }
 
 #ifdef CONFIG_USER_NS
 static inline void userns_fixup_signal_uid(struct siginfo *info, struct task_struct *t)
 {
+	/* 현재 user ns와 task의 user_ns가 같은 경우 */
 	if (current_user_ns() == task_cred_xxx(t, user_ns))
 		return;
 
+	/* signal info가 kernel에서 온 경우 */
 	if (SI_FROMKERNEL(info))
 		return;
 
@@ -1054,6 +1092,7 @@ static inline void userns_fixup_signal_uid(struct siginfo *info, struct task_str
 }
 #endif
 
+/* 실제 signal을 보내는 함수. 직접 call하지 않고 wrapper에게 불려져 사용된다. */
 static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			int group, int from_ancestor_ns)
 {
@@ -1062,13 +1101,19 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	int override_rlimit;
 	int ret = 0, result;
 
+	/* 이 상태에서는 spin lock이 걸려 있어야 한다. 그게 아니면 BUG */
 	assert_spin_locked(&t->sighand->siglock);
 
+	/* 여기서 result는 결과로서, signal이 어떻게(어디까지) 처리되었는지를
+	   나타내는 듯... */
 	result = TRACE_SIGNAL_IGNORED;
 	if (!prepare_signal(sig, t,
 			from_ancestor_ns || (info == SEND_SIG_FORCED)))
 		goto ret;
 
+	/* group전체에게 보내는 것이라면, task의 공유 pending
+	   queue(아마도 group의 pending queue 인듯)를 가져오고 아니면,
+	   task의 pending queue를 가져온다 */
 	pending = group ? &t->signal->shared_pending : &t->pending;
 	/*
 	 * Short-circuit ignored signals and support queuing
@@ -1076,6 +1121,11 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	 * detailed information about the cause of the signal.
 	 */
 	result = TRACE_SIGNAL_ALREADY_PENDING;
+	/* 같은 signal을 등록을 방지한다. 순환적인 signal과 none-rt signal등록이
+	   방지가 되므로, 부가적인 정보로서, signal 발생의 자세한 정보를 얻을 수
+	   있다고 한다. (순환적인 등록시 double signal 발생으로 인한 문제를
+	   말하는 듯) RT시그널이 아니라는 말은 일반적인 signal이라는 말이다.
+	*/
 	if (legacy_queue(pending, sig))
 		goto ret;
 
@@ -1084,6 +1134,9 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	 * fast-pathed signals for kernel-internal things like SIGSTOP
 	 * or SIGKILL.
 	 */
+	/* 커널 내부에서 쓰이는 무시할 수 없는(강제적인) signal의 경우
+	   가장 빠른 방법(fast-path)을 사용한다. 주석의 의미는 약간 좀
+	   다르지만, 넘어가자 :) */
 	if (info == SEND_SIG_FORCED)
 		goto out_set;
 
@@ -1096,19 +1149,27 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	 * make sure at least one signal gets delivered and don't
 	 * pass on the info struct.
 	 */
+	/* 만약 RT signal이 아닌데, special signal(NOINFO, PREV,
+	   FORCED)이거나, si_code가 있는 경우(trap이 발생한 원인),
+	   rlimit(resource limit)이 세팅된다. 반드시 처리해야 되는
+	   signal인 경우, 할당될 때 되도록이면 무시하지(resource
+	   제한으로 FAIL) 못하도록 하는 목적으로 보인다 */
 	if (sig < SIGRTMIN)
 		override_rlimit = (is_si_special(info) || info->si_code >= 0);
 	else
 		override_rlimit = 0;
 
+	/* queue를 등록한다 */
 	q = __sigqueue_alloc(sig, t, GFP_ATOMIC | __GFP_NOTRACK_FALSE_POSITIVE,
 		override_rlimit);
 	if (q) {
 		list_add_tail(&q->list, &pending->list);
+		/* FORCED는 다른 곳에서 처리된다 */
 		switch ((unsigned long) info) {
 		case (unsigned long) SEND_SIG_NOINFO:
 			q->info.si_signo = sig;
 			q->info.si_errno = 0;
+			 /* USER mode에서 보내짐. kill, sigsend로 발생 */
 			q->info.si_code = SI_USER;
 			q->info.si_pid = task_tgid_nr_ns(current,
 							task_active_pid_ns(t));
@@ -1117,20 +1178,28 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 		case (unsigned long) SEND_SIG_PRIV:
 			q->info.si_signo = sig;
 			q->info.si_errno = 0;
+			 /* Kernel mode 때문에 발생. 대표적인게 trap?? */
 			q->info.si_code = SI_KERNEL;
 			q->info.si_pid = 0;
 			q->info.si_uid = 0;
 			break;
 		default:
+			/* 이미 info가 있는 경우는 queue에 가지고 있던 info를
+			   채운다. DO_ERROR_INFO로 정의된 trap에 해당 */
 			copy_siginfo(&q->info, info);
 			if (from_ancestor_ns)
 				q->info.si_pid = 0;
 			break;
 		}
 
+		/* user에서 발생한 signal일 때, signal uid를 변경한다. */
 		userns_fixup_signal_uid(&q->info, t);
 
 	} else if (!is_si_special(info)) {
+		/* queue를 생성하지 못하면서 special signal이 아닌 경우. */
+
+		/* RT 시그널이면서, kernel에서 발생한 경우는
+		   overflow이므로, 재시도로 처리. */
 		if (sig >= SIGRTMIN && info->si_code != SI_USER) {
 			/*
 			 * Queue overflow, abort.  We may abort if the
@@ -1146,14 +1215,19 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			 * send the signal, but the *info bits are lost.
 			 */
 			result = TRACE_SIGNAL_LOSE_INFO;
+			/* HELPME: signal을 보내지만, info는 잃어버린다(무시된다?)는 의미인가? */
 		}
 	}
 
 out_set:
+	/* signal을 받는 fd쪽을 wake-up한다(blocked 된 thread) */
 	signalfd_notify(t, sig);
+	/* pending signal에 signal을 등록 */
 	sigaddset(&pending->signal, sig);
 	complete_signal(sig, t, group);
 ret:
+	/* signal이 어떻게(언제) 생성되었는지 trace한다.
+	 TRACE_EVENT(signal_generate ...) 매크로를 통해서 정의되므로, tag에 안걸린다. */
 	trace_signal_generate(sig, info, t, group, result);
 	return ret;
 }
@@ -1164,6 +1238,8 @@ static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 {
 	int from_ancestor_ns = 0;
 
+	/* PID_NS는 중복되는 pid를 가지지만, 다른 NameSpace pid를 같을 수 있는 feature라서,
+	   상위 NS를 찾는 다는 의미인 듯... */
 #ifdef CONFIG_PID_NS
 	from_ancestor_ns = si_fromuser(info) &&
 			   !task_pid_nr_ns(current, task_active_pid_ns(t));
@@ -1214,8 +1290,7 @@ __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 static int
 specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 {
-	 /* group을 0으로 하여 signal을 보낸다 */
-	 /* HELPME: 이 부분은 scheduling과 관련이 있는 듯... */
+	 /* 특정 task에게 (group을 0으로 하여) signal을 보낸다 */
 	return send_signal(sig, info, t, 0);
 }
 
@@ -1253,10 +1328,11 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 
 	spin_lock_irqsave(&t->sighand->siglock, flags);
 	action = &t->sighand->action[sig-1];
+	/* 이미 signal이 IGN으로 설정된 경우 */
 	ignored = action->sa.sa_handler == SIG_IGN;
+	/* 이미 signal이 호출되서 처리하고 있는 경우 */
 	blocked = sigismember(&t->blocked, sig);
-	/* sig로부터 얻은 task의 signal handler가 task에서 SIG_IGN
-	 * 설정됐거나, sig가 blocked(signal set)에 등록되어 있는 경우 */
+	/* task에서 signal을 처리할 수 없는 상황인 경우 */
 	if (blocked || ignored) {
 		 /* signal handler를 default handler로 교체 */
 		action->sa.sa_handler = SIG_DFL;
@@ -1277,9 +1353,8 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 	 * 않는다는 말인듯? */
 	if (action->sa.sa_handler == SIG_DFL)
 		t->signal->flags &= ~SIGNAL_UNKILLABLE;
-	/* signal을 보낸다. */
-	/* HELPME: 내부적으로 단순히 send_signal 호출만 할 뿐인데? 왜
-	 * specific으로 표현했는지 모르겠음 */
+	/* 내부적으로 send_signal 호출을 하면서, 그룹없이 특정(specific)
+	   task에게만 signal을 전달 */
 	ret = specific_send_sig_info(sig, info, t);
 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
 

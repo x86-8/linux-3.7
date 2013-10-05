@@ -150,7 +150,7 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 	struct task_struct *tsk = current;
 
 
-	/* signal없이 처리가 가능 한 경우(kernel 모드에서 exception 수정 가능할때?) */
+	/* kernel(모드)에서 발생한 인터럽트라면, 직접 처리하도록 한다.(처리못하면 die!!) */
 	if (!do_trap_no_signal(tsk, trapnr, str, regs, error_code))
 		return;
 	/*
@@ -180,15 +180,17 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 	}
 #endif
 
-	/* force_sig, force_sig_info는 signal을 무시못하도록 강제로
-	 * 처리하게 하는 함수라고 한다. */
-	/* signal info(signal number와 해당 signal의 subtype이 들어 있음)가 있는 경우, 호출 */
+	/* fore_sig_info는 task에서 signal을 무시한다 하더라도 강제로
+	   signal을 처리하도록 만든다. (e.g. SIGKILL, SIGSTOP 등등)
+	   x86에서는 DO_ERROR로 만들어진 인터럽트 핸들러의 경우는,
+	   info가 NULL이지만, DO_ERROR_INFO로 만들어진 인터럽트
+	   핸들러의 경우는 error info를 생성해서 넘겨주므로,
+	   fore_sig_info가 호출된다. 참고로 info가 NULL인 경우, USER
+	   mode에서 만들어진 것으로 판별한다 */
 	if (info)
 		force_sig_info(signr, info, tsk);
 	else
-		 /* force_sig_info(signr, SEND_SIG_PRIV, tsk)로 호출 */
-		 /* HELPME: SEND_SIG_PRIV는 ((struct siginfo *) 1)인데, 왜
-		  * 1인가? */
+		/* force_sig_info(signr, SEND_SIG_PRIV, tsk)로 호출 */
 		force_sig(signr, tsk);
 }
 
@@ -782,7 +784,7 @@ void __init trap_init(void)
 	 */
 	cpu_init();
 
-	x86_init.irqs.trap_init(); 	/* => x86_init_noop(...) */
+	x86_init.irqs.trap_init(); 	/* => x86_init_noop(...)을 호출(do nothing) */
 
 #ifdef CONFIG_X86_64
 	memcpy(&nmi_idt_table, &idt_table, IDT_ENTRIES * 16);

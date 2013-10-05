@@ -645,6 +645,8 @@ struct signal_struct {
  */
 #define SIGNAL_STOP_STOPPED	0x00000001 /* job control stop in effect */
 #define SIGNAL_STOP_CONTINUED	0x00000002 /* SIGCONT since WCONTINUED reap */
+/* 프로세스에게 kill이 들어오면 task의 signal flag에 group_exit이
+   설정된다. 결국 프로세스에 해당되는 모든 task들이 죽는다 */
 #define SIGNAL_GROUP_EXIT	0x00000004 /* group exit in progress */
 /*
  * Pending notifications to parent.
@@ -653,6 +655,7 @@ struct signal_struct {
 #define SIGNAL_CLD_CONTINUED	0x00000020
 #define SIGNAL_CLD_MASK		(SIGNAL_CLD_STOPPED|SIGNAL_CLD_CONTINUED)
 
+/* signal로 죽일 수 없다는 flag. init 프로세스를 위해 있음 */
 #define SIGNAL_UNKILLABLE	0x00000040 /* for init: ignore fatal signals */
 
 /* If true, all threads except ->group_exit_task have pending SIGKILL */

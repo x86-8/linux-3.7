@@ -139,6 +139,7 @@ static inline void play_dead(void)
 
 static inline void smp_send_reschedule(int cpu)
 {
+	/* native_smp_send_reschedule(...) 을 호출 */
 	smp_ops.smp_send_reschedule(cpu);
 }
 
