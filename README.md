@@ -38,5 +38,6 @@ Study history (날짜:인원:내용)
 111. 2013/07/27:02:*init/main.c* - trap_init | 소득없음
 112. 2013/08/03:03:*init/main.c* - trap_init
 113. 2013/08/10:02:*init/main.c* - trap_init
-114. 2013/08/17:01:*init/main.c* - trap_init | @jminrang님 혼자서 복습 중 T_T
-115. 2013/08/24:02:*init/main.c* - trap_init
+114. 2013/08/17:01:*init/main.c* -x trap_init | @jminrang님 혼자서 복습 중 T_T
+115. 2013/08/24:02:*init/main.c* -x trap_init
+116. 2013/08/31:01:*init/main.c* -x trap_init
