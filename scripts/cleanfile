@@ -4,6 +4,8 @@
 # WARNING: this can be a highly destructive operation.  Use with caution.
 #
 
+# 텍스트 파일(들)의 (숨겨진) 공백을 깔끔히 한다. 소스를 직접 건들이므로, "주의"해서 쓰라고 함.
+
 use bytes;
 use File::Basename;
 

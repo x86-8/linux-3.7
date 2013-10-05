@@ -2,5 +2,6 @@ if [ ! -f .version ]
 then
     echo 1
 else
+# .version을 숫자로 만들어서, version값을 1증가시킨다.
     expr 0`cat .version` + 1
 fi

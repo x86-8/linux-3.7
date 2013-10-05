@@ -9,6 +9,10 @@
 #
 #
 
+#커널 소스를 RCS로 관리하고 있다면, 커널 컴파일시 해당 리비젼 명을
+# 출력한다. linux로 컴파일 하게 되면, 상위 Makefile에서 버전 명을
+# 만들게 된다.  (Bazar 나 git-svn은 사용하지 않는 것으로 보이네...)
+
 usage() {
 	echo "Usage: $0 [--save-scmversion] [srctree]" >&2
 	exit 1
@@ -42,6 +46,7 @@ scm_version()
 		short=true
 	fi
 
+	# Git 저장소일 경우 버전을 출력한다
 	# Check for git and a git repo.
 	if test -d .git && head=`git rev-parse --verify --short HEAD 2>/dev/null`; then
 
@@ -83,6 +88,7 @@ scm_version()
 		return
 	fi
 
+	# Mercurial 저장소일 경우 버전 출력
 	# Check for mercurial and a mercurial repo.
 	if test -d .hg && hgid=`hg id 2>/dev/null`; then
 		# Do we have an tagged version?  If so, latesttagdistance == 1
@@ -107,6 +113,7 @@ scm_version()
 		return
 	fi
 
+	# SVN 저장소일 경우 버전 출력
 	# Check for svn and a svn repo.
 	if rev=`svn info 2>/dev/null | grep '^Last Changed Rev'`; then
 		rev=`echo $rev | awk '{print $NF}'`

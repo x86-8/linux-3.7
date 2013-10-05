@@ -42,3 +42,4 @@ Study history (날짜:인원:내용)
 115. 2013/08/24:02:*init/main.c* -x trap_init
 116. 2013/08/31:01:*init/main.c* -x trap_init - 복습중
 117. 2013/09/14:02:*init/main.c* -x trap_init - 토론
+118. 2013/09/14:02:*init/main.c* -x trap_init - script 분석(해당 내용은 trap_init과 상관없이 진행하였음)

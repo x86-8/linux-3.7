@@ -4,6 +4,9 @@
 # Vegard Nossum <vegardno@ifi.uio.no>
 #
 
+#header 의존성을 graph로 그린다.
+# graph를 그리기 위해서 graphviz 패키지가 설치되어야 한다
+
 use strict;
 use warnings;
 

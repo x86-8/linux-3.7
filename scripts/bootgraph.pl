@@ -37,6 +37,9 @@
 # 	dmesg | perl scripts/bootgraph.pl > output.svg
 #
 
+#bootgraph를 그린다. 커널에서 initcall debug feature를 활성화해야
+# 한다. 그러면 dmesg에 해당 메시지를 가지고 bootchart를 그린다.
+
 use strict;
 
 my %start;

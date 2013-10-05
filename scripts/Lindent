@@ -1,4 +1,8 @@
 #!/bin/sh
+# Linux에서 쓰는 indent 호출 방식
+# Documentation/CodingStyle 에서 글을 읽어볼수 있다.
+# KLDP.net에도 김남형 님이 번역한 글을 참조 가능
+
 PARAM="-npro -kr -i8 -ts8 -sob -l80 -ss -ncs -cp1"
 RES=`indent --version`
 V1=`echo $RES | cut -d' ' -f3 | cut -d'.' -f1`

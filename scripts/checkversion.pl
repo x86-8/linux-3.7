@@ -5,6 +5,9 @@
 # including <linux/version.h> that don't need it.
 # Copyright (C) 2003, Randy Dunlap <rdunlap@xenotime.net>
 
+# linux/version.h를 include하지 않으면서 LINUX_VERSION_CODE나 KERNEL_VERSION 상수를 사용하고 있는 경우를 찾는 스크립트
+# (perl에서 문자열 처리 방법이 line단위인데, 여러줄 주석을 없애는 방법이 참 대단한듯)
+
 use strict;
 
 $| = 1;

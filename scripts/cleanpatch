@@ -4,6 +4,9 @@
 # WARNING: this can be a highly destructive operation.  Use with caution.
 #
 
+# cleanfile 스크립트와 마찬가지로 patch에 (숨겨진) 공백을 정리하는 역할을 하는 듯...
+# 주의해서 쓰라고 한다.
+
 use bytes;
 use File::Basename;
 

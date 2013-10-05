@@ -11,6 +11,8 @@
 # you do have real dups and do not have them under #ifdef's. You
 # could also just review the results.
 
+# 중복으로 include 한 경우 찾거나 제거한다. 기본적인 동작은 중복된 결과를 찾아서 경고한다.
+
 use strict;
 
 sub usage {

@@ -21,6 +21,10 @@
 #
 #	TODO :	Port to all architectures (one regex per arch)
 
+# 컴파일 되서 나온 vmlinux파일을 검사하는 것으로 보인다
+# Linux시스템이라면 아래와 같이 직접 테스트 해볼 수 있다(arch는 없어도 알아서 찾는 듯)
+# objdump -d /boot/vmlinux | scripts/checkstack.pl x86_64
+
 use strict;
 
 # check for arch
