@@ -44,3 +44,5 @@ Study history (날짜:인원:내용)
 117. 2013/09/14:02:*init/main.c* -x trap_init - 토론
 118. 2013/09/28:02:*init/main.c* -x trap_init - script 분석(해당 내용은 trap_init과 상관없이 진행하였음)
 119. 2013/10/05:03:*init/main.c* -x trap_init | trap_init 종료(sched 내용 분석은 아쉽지만, 다음 기회에)
+120. 2013/10/12:02:*init/main.c* - mm_init | 대망의 기다리던 메모리 할당자 초기화
+121.

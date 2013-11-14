@@ -459,6 +459,7 @@ void __init __weak thread_info_cache_init(void)
 /*
  * Set up kernel memory allocators
  */
+/* 메모리할당자 초기화 */
 static void __init mm_init(void)
 {
 	/*
@@ -565,6 +566,7 @@ asmlinkage void __init start_kernel(void)
 	sort_main_extable();
 	/* trap 초기화 */
 	trap_init();
+	/* 메모리 초기화 */
 	mm_init();
 
 	/*
